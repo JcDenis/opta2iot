@@ -1,0 +1,89 @@
+name: Release package
+on: 
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version'
+        type: string
+        required: true
+
+jobs:
+  check_release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ github.event.inputs.version }}
+      exists: ${{ steps.repository.outputs.release-exists }}
+    steps:
+      - name: Checkout repository master branch
+        uses: actions/checkout@master
+
+      - name: Check repository releases
+        id: repository
+        uses: insightsengineering/release-existence-action@v1.0.0
+        with:
+          release-tag: 'v${{ needs.check_release.outputs.version }}'
+
+  do_release:
+    needs: check_release
+    if: needs.check_release.outputs.exists == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository master branch
+        uses: actions/checkout@master
+
+      - name: Get repository name
+        id: repository
+        uses: MariachiBear/get-repo-name-action@v1.1.0
+        with:
+          with-owner: 'false'
+
+      - name: Import GPG key
+        id: import-gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.BOT_GPG_KEY }}
+          passphrase: ${{ secrets.BOT_GPG_PASS }}
+          git_config_global: true
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+
+      - name: Get download URL
+        id: download
+        run: |
+          fulltag=${{ github.ref_name }}
+          echo download-url="https://github.com/${{ github.repository }}/releases/download/v${{ needs.check_release.outputs.version }}/${{ steps.repository.outputs.repository-name }}.zip" >> $GITHUB_OUTPUT
+
+      - name: Create archive
+        id: writearchive
+        uses: thedoctor0/zip-release@0.7.6
+        with:
+          type: 'zip'
+          directory: ..
+          path: '${{ steps.repository.outputs.repository-name }}'
+          filename: '${{ steps.repository.outputs.repository-name }}.zip'
+          exclusions: '*.git* /*node_modules/* .editorconfig'
+    
+      - name: Create release with archive
+        id: writerelease
+        uses: ncipollo/release-action@v1.14.0
+        with:
+          artifacts: '../${{ steps.repository.outputs.repository-name }}.zip'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit: master
+          draft: false
+          prerelease: false
+          generateReleaseNotes: true
+          name: ${{ steps.repository.outputs.repository-name }} ${{ needs.check_release.outputs.version }}
+          tag: 'v${{ needs.check_release.outputs.version }}'
+    
+      - name: Send Telegram Message Ok
+        uses: appleboy/telegram-action@v1.0.0
+        with:
+          to: ${{ secrets.TELEGRAM_ID }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          format: markdown
+          message: |
+            __Github workflow run__
+            - Trigger: ${{ github.event_name }} 
+            - Release: ${{ steps.repository.outputs.repository-name }} ${{ needs.check_release.outputs.version }} 
+            - Download URL: ${{ steps.download.outputs.download-url }} 
