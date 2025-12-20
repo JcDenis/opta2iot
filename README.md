@@ -11,11 +11,7 @@
 
 The goal of this sketch is to implement an easy to use MQTT gateway for industrial equipments.
 
-Based on "Remoto" 
-Author: Alberto Perro
-Date: 27-12-2024
-License: CERN-OHL-P
-Source: https://github.com/albydnc/remoto
+**Based on "Remoto" (27-12-2024) by Alberto Perro under CERN-OHL-P license at https://github.com/albydnc/remoto**
 
 
 ## Features
