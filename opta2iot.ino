@@ -60,16 +60,6 @@ unsigned long serialLoopRepeat = 0;
 
 // Format
 void setupFormat();
-bool formatOK = false;
-bool formatSetup = false;
-mbed::BlockDevice* root = mbed::BlockDevice::get_default_instance();
-mbed::MBRBlockDevice wifi_data(root, 1);
-mbed::MBRBlockDevice ota_data(root, 2);
-mbed::MBRBlockDevice kvstore_data(root, 3);
-mbed::MBRBlockDevice user_data(root, 4);
-mbed::FATFileSystem wifi_data_fs("wlan");
-mbed::FATFileSystem ota_data_fs("fs");
-mbed::FATFileSystem user_data_fs("user");
 
 // Config
 void setupConfig();
@@ -247,7 +237,6 @@ void loopSerial() {
 
 void setupFormat() {
   deviceFormat(false);
-  formatSetup = true;
 }
 
 /**
@@ -857,6 +846,15 @@ void deviceInfo() { // taken from https://opta.findernet.com/en/tutorial/mac-add
 }
 
 void deviceFormat(bool force) {
+  mbed::BlockDevice* root = mbed::BlockDevice::get_default_instance();
+  mbed::MBRBlockDevice wifi_data(root, 1);
+  mbed::MBRBlockDevice ota_data(root, 2);
+  mbed::MBRBlockDevice kvstore_data(root, 3);
+  mbed::MBRBlockDevice user_data(root, 4);
+  mbed::FATFileSystem wifi_data_fs("wlan");
+  mbed::FATFileSystem ota_data_fs("fs");
+  mbed::FATFileSystem user_data_fs("user");
+
   if (root->init() != mbed::BD_ERROR_OK) {
     Serial.println("!> Error: QSPI init failure");
     return;
@@ -922,7 +920,6 @@ void deviceFormat(bool force) {
   }
   
   Serial.println("* QSPI Flash formatted!");
-  formatOK = true;
 
   deviceReboot();
 }
