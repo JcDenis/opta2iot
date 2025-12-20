@@ -1,5 +1,9 @@
 # opta2iot
 
+[![Release](https://img.shields.io/github/v/release/jcdenis/opta2iot?color=lightblue)](https://github.com/JcDenis/opta2iot/releases)
+![Date](https://img.shields.io/github/release-date/jcdenis/opta2iot?color=red)
+[![License](https://img.shields.io/github/license/jcdenis/opta2iot?color=white)](https://github.com/JcDenis/opta2iot/blob/master/LICENSE)
+
 
 ## About
 
