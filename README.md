@@ -1,4 +1,4 @@
-# sopta2iot by Jean-Christian Paul Denis
+# opta2iot
 
 
 ## About
@@ -119,3 +119,15 @@ For Arduino Finder Opta Lite on its M7 core.
 * Tools > Security > None
 * Tools > Flash split > 2Mb M7
 * Tools > Target core > Main Core
+
+
+## CONTRIBUTORS
+
+* Alberto Perro (source author)
+* Jean-Christian Paul Denis (opta2iot author)
+
+You are welcome to contribute to this code.
+
+## LICENSE
+
+CERN-OHL-P-2.0 license
