@@ -29,7 +29,6 @@
 #include "kvstore_global_api.h"
 #include "opta_info.h"
 
-#include "opta.h"
 #include "config.h"
 #include "html.h"
 
