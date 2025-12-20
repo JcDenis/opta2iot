@@ -39,7 +39,7 @@ unsigned long loopTime = 0;
 void setupLed();
 void loopLed();
 bool ledOK = false;
-bool ledStarted = false;
+bool ledSetup = false;
 unsigned long ledLoopState = LOW;
 unsigned long ledLoopTime = 0;
 
@@ -48,7 +48,7 @@ REDIRECT_STDOUT_TO(Serial);
 void setupSerial();
 void loopSerial();
 bool serialOK = false;
-bool serialStarted = false;
+bool serialSetup = false;
 const byte serialMaxLen = 50;
 char serialMessage[serialMaxLen + 1];
 unsigned long serialLoopTime = 0;
@@ -58,7 +58,7 @@ unsigned long serialLoopRepeat = 0;
 // Format
 void setupFormat();
 bool formatOK = false;
-bool formatStarted = false;
+bool formatSetup = false;
 mbed::BlockDevice* root = mbed::BlockDevice::get_default_instance();
 mbed::MBRBlockDevice wifi_data(root, 1);
 mbed::MBRBlockDevice ota_data(root, 2);
@@ -72,13 +72,13 @@ mbed::FATFileSystem user_data_fs("user");
 void setupConfig();
 void loopConfig();
 bool configOK = false;
-bool configStarted = false;
+bool configSetup = false;
 config conf;
 
 // Net
 void loopNet();
 bool netOK = false;
-bool netStarted = false;
+bool netSetup = false;
 unsigned long netLastRetry = 0;
 unsigned long netLastMaintain = 0;
 
@@ -86,13 +86,13 @@ unsigned long netLastMaintain = 0;
 void setupWeb();
 void loopWeb();
 bool webOK = false;
-bool webStarted = false;
+bool webSetup = false;
 EthernetServer webServer(80);
 
 // Mqtt
 void loopMqtt();
 bool mqttOK = false;
-bool mqttStarted = false;
+bool mqttSetup = false;
 MQTTClient mqttClient;
 EthernetClient netClient;
 long mqttLastPublish = -1;
@@ -125,7 +125,7 @@ void loop() {
 void setupLed() {
   pinMode(LEDR, OUTPUT); // RED led for ethernet cable
   pinMode(LED_RESET, OUTPUT);  // GREEN led for mqtt and config setup
-  ledStarted = true;
+  ledSetup = true;
   ledOK = true;
 }
 
@@ -135,12 +135,12 @@ void loopLed() {
     ledLoopState = ledLoopState == LOW ? HIGH : LOW;
 
     // blink red = no ethernet, blik green = mqtt ok
-    if (!configStarted) {
+    if (!configSetup) {
       digitalWrite(LED_RESET, HIGH);
     } else {
       digitalWrite(LED_RESET, mqttOK && Ethernet.linkStatus() != LinkOFF ? ledLoopState : LOW);
     }
-    if (!netStarted) {
+    if (!netSetup) {
       digitalWrite(LEDR, HIGH);
     } else {
       digitalWrite(LEDR, Ethernet.linkStatus() == LinkOFF ? ledLoopState : LOW);
@@ -160,7 +160,7 @@ void setupSerial() {
   Serial.println("| opta2iot - Arduino OPTA Lite |");
   Serial.println("+——————————————————————————————+");
   Serial.println("");
-  serialStarted = true;
+  serialSetup = true;
   serialOK = true;
 }
 
@@ -244,7 +244,7 @@ void loopSerial() {
 
 void setupFormat() {
   deviceFormat(false);
-  formatStarted = true;
+  formatSetup = true;
 }
 
 /**
@@ -286,7 +286,7 @@ void setupConfig() {
   Serial.println("* Configuring IO board pins");
   conf.initializePins();
 
-  configStarted = true;
+  configSetup = true;
   configOK = true;
 }
 
@@ -343,15 +343,15 @@ void loopNet() {
   if (netOK && netLastMaintain > 0 && loopTime < netLastMaintain + (NET_RETRY_DELAY*1000)) {
     Ethernet.maintain();
   }
-  if (netStarted && !netOK && Ethernet.linkStatus() == LinkON) {
+  if (netSetup && !netOK && Ethernet.linkStatus() == LinkON) {
     Serial.println("* Ethernet cable connected");
     netOK = true;
   }
-  if (netStarted && netOK && Ethernet.linkStatus() != LinkON) {
+  if (netSetup && netOK && Ethernet.linkStatus() != LinkON) {
     Serial.println("* Ethernet cable disconnected");
     netOK = false;
   }
-  if (netStarted && Ethernet.linkStatus() == LinkON) {
+  if (netSetup && Ethernet.linkStatus() == LinkON) {
     netOK = true;
     return;
   }
@@ -367,7 +367,7 @@ void loopNet() {
     return;
   }
 
-  if (!netStarted) {
+  if (!netSetup) {
     int ret = 0;
 
     if (conf.getNetDhcp()) {
@@ -394,7 +394,7 @@ void loopNet() {
       netOK = true;
     }
 
-    netStarted = true;
+    netSetup = true;
     delay(1000);
   }
 }
@@ -406,7 +406,7 @@ void loopNet() {
 void setupWeb() {
   Serial.println("* Starting web server");
   webServer.begin();
-  webStarted = true;
+  webSetup = true;
 }
 
 void loopWeb() {
@@ -695,13 +695,13 @@ void loopMqtt() {
     return;
   }
 
-  if (!mqttStarted && netOK) {
+  if (!mqttSetup && netOK) {
     Serial.println("* Configuring MQTT on server " + conf.getMqttIp() + ":" + String(conf.getMqttPort()));
     //mqttClient.setTimeout(5000); // does not work
     //mqttClient.setOptions(10, true, 5000); // does not work
     mqttClient.begin(conf.getMqttIp().c_str(), conf.getMqttPort(), netClient);
     mqttClient.onMessage(mqttReceiveInfo);
-    mqttStarted = true;
+    mqttSetup = true;
   }
   
   mqttConnect();
