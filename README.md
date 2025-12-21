@@ -1,4 +1,4 @@
-# opta2iot
+# Arduino Opta Industrial IoT gateway
 
 [![Release](https://img.shields.io/github/v/release/jcdenis/opta2iot?color=lightblue)](https://github.com/JcDenis/opta2iot/releases)
 ![Date](https://img.shields.io/github/release-date/jcdenis/opta2iot?color=red)
@@ -7,7 +7,7 @@
 
 ## About
 
-> Arduino sketch for the Arduino Opta Lite (without Wifi nor RS485)
+> Arduino sketch for the Arduino Opta series
 
 The goal of this sketch is to implement an easy to use MQTT gateway for industrial equipments.
 
@@ -101,7 +101,7 @@ Available web server entrypoints are:
 
 ## ARDUINO IDE
 
-For Arduino Finder Opta Lite on its M7 core.
+For Arduino Finder Opta on its M7 core.
 
 ### Boards manager
 

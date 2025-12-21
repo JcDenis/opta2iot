@@ -1,7 +1,7 @@
 /*
  * opta2iot
  *
- * Arduino Opta Lite IIOT gateway
+ * Arduino Opta Industrial IoT gateway
  *
  * Author: Jean-Christian Paul Denis
  * Source: https://github.com/JcDenis/opta2iot
@@ -26,13 +26,13 @@ const char htmlHome[] PROGMEM = R"rawliteral(
 <html>
 
 <head>
-  <title>Opta Lite</title>
+  <title>Arduino Opta</title>
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
   <div class="box">
-    <h1 id="title">Opta Lite</h1>
+    <h1 id="title">Arduino Opta</h1>
   </div>
 
   <div class="box">
@@ -89,8 +89,8 @@ const char htmlHome[] PROGMEM = R"rawliteral(
         const data = await response.json();
         console.log(data.deviceId);
 
-        document.title = "Opta Lite " + data.deviceId;
-        document.getElementById('title').innerText = "Opta Lite " + data.deviceId;
+        document.title = "Opta " + data.deviceId;
+        document.getElementById('title').innerText = "Opta " + data.deviceId;
         document.getElementById('version').innerText = "opta2iot v" + data.version;
 
         // Update MQTT connection status
@@ -163,14 +163,14 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
 <html>
 
 <head>
-  <title>Opta Lite</title>
+  <title>Arduino Opta</title>
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
   <form id="configForm">
     <div class="box">
-      <h1 id="title">Opta Lite</h1>
+      <h1 id="title">Arduino Opta</h1>
     </div>
     
     <div class="box">
@@ -259,8 +259,8 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
         if (!response.ok) throw new Error('Failed to fetch configuration');
         const data = await response.json();
 
-        document.title = "Opta Lite " + data.deviceId;
-        document.getElementById('title').innerText = "Opta Lite " + data.deviceId;
+        document.title = "Opta " + data.deviceId;
+        document.getElementById('title').innerText = "Opta " + data.deviceId;
         document.getElementById('version').innerText = "opta2iot v" + data.version;
 
         document.getElementById('deviceId').value = data.deviceId;

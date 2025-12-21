@@ -1,7 +1,7 @@
 /*
  * opta2iot
  *
- * Arduino Opta Lite IIOT gateway
+ * Arduino Opta Industrial IoT gateway
  *
  * Author: Jean-Christian Paul Denis
  * Source: https://github.com/JcDenis/opta2iot

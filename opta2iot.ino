@@ -1,7 +1,7 @@
 /*
  * opta2iot
  *
- * Arduino Opta Lite IIOT gateway
+ * Arduino Opta Industrial IoT gateway
  *
  * Author: Jean-Christian Paul Denis
  * Source: https://github.com/JcDenis/opta2iot
@@ -36,6 +36,18 @@ using namespace opta2iot;
 
 // Loop
 unsigned long loopTime = 0;
+
+// Board
+void setupBoard();
+bool boardSetup = false;
+constexpr int OPTA_NONE = 0;
+constexpr int OPTA_LITE = 1;
+constexpr int OPTA_WIFI = 2;
+constexpr int OPTA_RS485 = 3;
+int boardSerie = OPTA_NONE;
+String boardName = "";
+String boardMacEthernet = "";
+String boardMacWifi = "";
 
 // Led
 void setupLed();
@@ -92,8 +104,9 @@ bool mqttForcePublish = false;
 unsigned long mqttLastRetry = 0;
 
 void setup() {
-  setupLed();
   setupSerial();
+  setupBoard();
+  setupLed();
   setupFormat();
   setupConfig();
   setupWeb();
@@ -102,8 +115,8 @@ void setup() {
 void loop() {
   loopTime = millis();
 
-  loopLed();
   loopSerial();
+  loopLed();
   loopConfig();
   loopNet();
   loopWeb();
@@ -111,33 +124,32 @@ void loop() {
 }
 
 /**
- * Led
+ * Board
  */
 
-void setupLed() {
-  pinMode(LEDR, OUTPUT); // RED led for ethernet cable
-  pinMode(LED_RESET, OUTPUT);  // GREEN led for mqtt and config setup
-  ledSetup = true;
-  ledOK = true;
-}
-
-void loopLed() {
-  if (loopTime - ledLoopTime > 750) {  // blink 0.5s
-    ledLoopTime = loopTime;
-    ledLoopState = ledLoopState == LOW ? HIGH : LOW;
-
-    // blink red = no ethernet, blik green = mqtt ok
-    if (!configSetup) {
-      digitalWrite(LED_RESET, HIGH);
-    } else {
-      digitalWrite(LED_RESET, mqttOK && Ethernet.linkStatus() != LinkOFF ? ledLoopState : LOW);
+void setupBoard() {
+  boardSetup = true;
+  OptaBoardInfo* info;
+  OptaBoardInfo* boardInfo();
+  
+  info = boardInfo();
+  if (info->magic == 0xB5) {
+    if (info->_board_functionalities.ethernet == 1) {
+      boardSerie = OPTA_LITE;
+      boardName = "Opta Lite AFX00003";
+      boardMacEthernet = String(info->mac_address[0], HEX) + ":" + String(info->mac_address[1], HEX) + ":" + String(info->mac_address[2], HEX) + ":" + String(info->mac_address[3], HEX) + ":" + String(info->mac_address[4], HEX) + ":" + String(info->mac_address[5], HEX);
     }
-    if (!netSetup) {
-      digitalWrite(LEDR, HIGH);
-    } else {
-      digitalWrite(LEDR, Ethernet.linkStatus() == LinkOFF ? ledLoopState : LOW);
+    if (info->_board_functionalities.rs485 == 1) {
+      boardSerie = OPTA_RS485;
+      boardName = "Opta RS485 AFX00001";
+    }
+    if (info->_board_functionalities.wifi == 1) {
+      boardSerie = OPTA_WIFI;
+      boardName = "Opta Wifi AFX00002";
+      boardMacWifi = String(info->mac_address_2[0], HEX) + ":" + String(info->mac_address_2[1], HEX) + ":" + String(info->mac_address_2[2], HEX) + ":" + String(info->mac_address_2[3], HEX) + ":" + String(info->mac_address_2[4], HEX) + ":" + String(info->mac_address_2[5], HEX);
     }
   }
+  deviceInfo();
 }
 
 /**
@@ -148,9 +160,9 @@ void setupSerial() {
   Serial.begin(115200);
   delay(5000);
   Serial.println("");
-  Serial.println("+——————————————————————————————+");
-  Serial.println("| opta2iot - Arduino OPTA Lite |");
-  Serial.println("+——————————————————————————————+");
+  Serial.println("+—————————————————————————————————————+");
+  Serial.println("| Arduino Opta Industrial IoT gateway |");
+  Serial.println("+—————————————————————————————————————+");
   Serial.println("");
   serialSetup = true;
   serialOK = true;
@@ -226,6 +238,36 @@ void loopSerial() {
       serialLoopTime = loopTime;
       serialLoopCount = 0;
       serialLoopRepeat = 0;
+    }
+  }
+}
+
+/**
+ * Led
+ */
+
+void setupLed() {
+  pinMode(LEDR, OUTPUT); // RED led for ethernet cable
+  pinMode(LED_RESET, OUTPUT);  // GREEN led for mqtt and config setup
+  ledSetup = true;
+  ledOK = true;
+}
+
+void loopLed() {
+  if (loopTime - ledLoopTime > 750) {  // blink 0.5s
+    ledLoopTime = loopTime;
+    ledLoopState = ledLoopState == LOW ? HIGH : LOW;
+
+    // blink red = no ethernet, blik green = mqtt ok
+    if (!configSetup) {
+      digitalWrite(LED_RESET, HIGH);
+    } else {
+      digitalWrite(LED_RESET, mqttOK && Ethernet.linkStatus() != LinkOFF ? ledLoopState : LOW);
+    }
+    if (!netSetup) {
+      digitalWrite(LEDR, HIGH);
+    } else {
+      digitalWrite(LEDR, Ethernet.linkStatus() == LinkOFF ? ledLoopState : LOW);
     }
   }
 }
@@ -797,7 +839,7 @@ void mqttPublishDeviceInfo() {
 
   Serial.println("* Publishing device informations to MQTT");
   String rootTopic = conf.getMqttBase() + conf.getDeviceId() + "/device/";
-  mqttClient.publish(String(rootTopic + "type").c_str(), "Opta Lite AFX00003");
+  mqttClient.publish(String(rootTopic + "type").c_str(), boardName);
   mqttClient.publish(String(rootTopic + "ip").c_str(), Ethernet.localIP().toString().c_str());
   mqttClient.publish(String(rootTopic + "version").c_str(), String(VERSION).c_str());
 }
@@ -819,28 +861,25 @@ void deviceReboot() {
   NVIC_SystemReset();
 }
 
-void deviceInfo() { // taken from https://opta.findernet.com/en/tutorial/mac-address#next-steps-11
-  
-  uint8_t *bootloader_data = (uint8_t *)(0x801F000);
-  OptaBoardInfo *info;
-  OptaBoardInfo *boardInfo();
-  info = boardInfo();
-  Serial.println("* Getting board informations");
+void deviceInfo() {
+  if (!boardSetup) {
+    return;
+  }
 
-  if (info->magic == 0xB5) {
-    Serial.println(" > Secure information version: " + String(info->version));
-    Serial.println(" > QSPI memory size: " + String(info->external_flash_size) + " MB");
-    Serial.println(" > Secure board revision: " + String(info->revision >> 8) + "." + String(info->revision & 0xFF));
-    Serial.println(" > Secure VID: 0x" + String(info->vid, HEX));
-    Serial.println(" > Secure PID: 0x" + String(info->pid, HEX));
-    Serial.println(" > Ethernet MAC address: " + String(info->mac_address[0], HEX) + ":" + String(info->mac_address[1], HEX) + ":" + String(info->mac_address[2], HEX) + ":" + String(info->mac_address[3], HEX) + ":" + String(info->mac_address[4], HEX) + ":" + String(info->mac_address[5], HEX));
-  } else {
-    Serial.println(" > No secure information available!");
-    Serial.println(" > Clock source: " + boardClockSource(bootloader_data[2]));
-    Serial.println(" > USB Speed: " + boardUsbSpeed(bootloader_data[3]));
-    Serial.println(" > RAM size: " + bootloader_data[6] == 0 ? "N/A" : (String(bootloader_data[6]) + "MB"));
-    Serial.println(" > QSPI memory size: " + String(bootloader_data[7]) + " MB");
-    Serial.println(" > Secure element functionality: " + String(bootloader_data[9] == 1 ? "Yes" : "No"));
+  Serial.println("* Getting board informations");
+  if (boardSerie == OPTA_NONE) {
+    Serial.println("!> Failed to find secure boot information");
+    return;
+  }
+
+  Serial.println(" > Board serie: " + boardName);
+  Serial.println(" > Board has Ethernet with Mac address " + boardMacEthernet);
+
+  if (boardSerie == OPTA_WIFI) {
+    Serial.println(" > Board has Wifi with Mac address " + boardMacWifi);
+  }
+  if (boardSerie != OPTA_LITE) {
+    Serial.println(" > Board has RS485");
   }
 }
 
