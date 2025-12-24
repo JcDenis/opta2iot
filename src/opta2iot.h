@@ -63,6 +63,10 @@ MQTTClient mqttClient;
 EthernetClient ethernetClient;  // for MQTT
 WiFiClient wifiClient;          // for MQTT
 
+/**
+ * Various
+ */
+
 void print(int action, String str) {
   String prefix;
   switch (action) {
@@ -397,7 +401,7 @@ void actionPublishDevice() {
 
   String rootTopic = conf.getMqttBase() + conf.getDeviceId() + "/device/";
   mqttClient.publish(String(rootTopic + "type").c_str(), getDeviceName());
-  mqttClient.publish(String(rootTopic + "ip").c_str(), String(getLocalIp()).c_str());
+  mqttClient.publish(String(rootTopic + "ip").c_str(), getLocalIp().toString());
   mqttClient.publish(String(rootTopic + "version").c_str(), String(SKETCH_VERSION).c_str());
 }
 
@@ -448,7 +452,7 @@ void loopSerial() {
     print(DO, "Receiving command '" + message + "'");
     if (message.equals("ip")) {  // print local Ip to terminal
       print(DO, "Getting local IP address");
-      print(OK, String(getLocalIp()));
+      print(OK, getLocalIp().toString());
     }
     if (message.equals("config")) {  // print configuration json to terminal
       print(DO, "Getting user configuration");
@@ -770,11 +774,12 @@ void netEthernetConnect() {
   int ret = 0;
 
   ledFreeze(true);
+  print(DO, "Configuring Ethernet");
   if (conf.getNetDhcp()) {
-    print(DO, "Configuring Ethernet using DHCP");
+    print(OK, "using DHCP");
     ret = Ethernet.begin();  // If failed this can take 1 minute long...
   } else {
-    print(DO, "Configuring Ethernet using static IP");
+    print(OK, "using static IP");
     ret = Ethernet.begin(parseIp(conf.getNetIp()));  // If failed this can take 1 minute long...
   }
   ledFreeze(false);
@@ -800,11 +805,11 @@ void netWifiStaConnect() {
   netApSsid.toCharArray(ssid, sizeof(ssid));
   netApPass.toCharArray(pass, sizeof(pass));
 
-  print(DO, "Configuring Wifi with SSID '" + netApSsid + "' and password '" + netApPass + "'");
+  print(OK, "using SSID '" + netApSsid + "' and password '" + netApPass + "'");
   if (conf.getNetDhcp()) {
-    Serial.println(" and using DHCP");
+    print(OK, "using DHCP");
   } else {
-    Serial.print(" and using static IP");
+    print(OK, "using static IP");
     WiFi.config(parseIp(conf.getNetIp()));
   }
 
@@ -862,7 +867,7 @@ void setupNetWifiAp() {
   netApSsid.toCharArray(ssid, sizeof(ssid));
   netApPass.toCharArray(pass, sizeof(pass));
 
-  print(DO, "Configuraing Wifi using SSID '" + netApSsid + "' and password '" + netApPass + "' and IP " + conf.getNetIp());
+  print(OK, "using SSID '" + netApSsid + "' and password '" + netApPass + "' and IP " + conf.getNetIp());
 
   WiFi.config(parseIp(conf.getNetIp()));
 
@@ -909,7 +914,7 @@ void setupNet() {
   delay(1000);
 
   if (netOk && configOk && conf.getNetDhcp()) {
-    print(OK, "DHCP attributed IP is " + String(getLocalIp()));
+    print(OK, "DHCP attributed IP is " + getLocalIp().toString());
   }
 }
 
