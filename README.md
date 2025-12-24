@@ -7,7 +7,7 @@
 
 ## About
 
-> Arduino sketch for the Arduino Opta series
+> Arduino sketch for the Arduino Opta series https://opta.findernet.com/fr/arduino
 
 The goal of this sketch is to implement an easy to use MQTT gateway for industrial equipments.
 
@@ -16,38 +16,60 @@ The goal of this sketch is to implement an easy to use MQTT gateway for industri
 
 ## Features
 
-* Partition formatting (first boot or on demand)
+* Suuport Opta RS485 AFX00001, Opta Wifi AFX00002, Opta Lite AFX00003 
+* Partition formatting (first boot or on demand) with Wifi firmware update
 * Configurable Ethernet with DHCP or static IP
-* Configurable MQTT Client
+* Configurable Wifi STA or AP and with DHCP or static IP
+* Configurable bidirectionnal MQTT Client with password support 
 * Configurable inputs (pulse, digital, analog)
 * Serial commands
 * Password protected Web server for visualization and configuration
 * Peristent configration storage in flash memory
-* lite and fast loop to keep MQTT publishing of input change state under 50ms
+* Lite and fast loop to keep MQTT publishing of input change state under 50ms
 
 
 ## To do
 
 * OTA support
-* Integrate others Opta series (wifi, rs485)
-* Enhance timeout on EthernetServer begin
-* (re)implement scheduler
+* Enhance timeout/freeze on all client or server connections
+* Fix freeze on web authentication
+* Add support for RS485
+* Add support for Modbus
 
 
 ## USAGE
 
+### Network
+
+**Wifi AP MODE**  
+If Wifi SSID is not configured and Wifi is set as prefered network, the Wifi goes into AP mode.  
+Default IP is `192.168.1.231`, default SSID is `opta99999` and password is `admin`.
+
+**Wifi STA MODE**  
+If Wifi SSID and password are configured and Wifi is set as prefred network, the wifi goes into STA mode.
+
+**Ethernet mode**  
+If Ethernet is set as prefered network, wifi is disbaled.
+
+**DHCP**  
+If DHCP mode is enabled in configuration, connection is tried to be established with dynamic IP, 
+else configured static IP address is used.
+
 ### Serial
 
-This sketch display activity on serial port and also support several commands :
+This sketch display activity on serial port and also support several commands.  
+These commands are not case sensitive.
 
-* CONFIG : Get user config
-* DHCP   : Switch ethernet DHCP mode
-* FORMAT : Create/format partitions
-* INFO   : Get board informations
-* IP     : Get ethernet IP
-* LOOP   : Get loops per second
-* REBOOT : Reboot device
-* RESET  : Reset config to default
+* `CONFIG ` : Get user config
+* `DHCP`    : Switch ethernet DHCP mode (and reboot)
+* `FORMAT`  : Create/format partitions (and reboot)
+* `INFO`    : Get board informations
+* `IP`      : Get ethernet IP
+* `LOOP`    : Get loops per second
+* `PUBLISH` : Publish to MQTT device and inputs state
+* `REBOOT`  : Reboot device
+* `RESET`   : Reset config to default (and reboot)
+* `WIFI`    : Switch Wifi/Ethernet mode (and reboot)
 
 ### MQTT
 
@@ -68,12 +90,18 @@ Command output state and device information topics:
 
 Input state can also be published on demand by sending an HTTP request to the `/publish` URL.
 
+Each **INPUTS** can be set in three ways:
+* `ANALOG` : Send value between 0 and 10
+* `DIGITAL` : Send value 0 or 1
+* `PULSE` : Send only value 1, ideal for counting
+
 ### Web server
 
 This sketch provides a web interface for visualization and configuration through a web server with basic authentication.
+Web server is available in both Ethernet and Wifi mode.
 
-* Default static IP address for web server is 192.168.1.231
-* Default user and password for web interface are admin:admin and can be changed in configuration.
+* Default static IP address for web server is `192.168.1.231`
+* Default user and password for web interface are `admin`:`admin` and can be changed in configuration.
 
 Available web server entrypoints are:
 * `GET /` : HTML visualization page
@@ -82,21 +110,34 @@ Available web server entrypoints are:
 * `GET /device` : HTML device configration page
 * `GET /style.css` : CSS for HTML pages
 * `GET /favicon.ico` : Icon for HTML pages
+* `GET /publish` : Publish to MQTT device and inputs state
 
 **Note:** All pages require basic autehntication !
 
 ### LED
 
-* Short blink top left green led on boot means user can push button to reset configuration to default
-* Blink top left red LED means no network
-* Blink top left green led means mqtt connected
-* No top left led means netwrok OK but no mqtt connection.
+During boot:
+* Fix Green and Red : Waiting for user to press button to fully reset device
+* Fast blink Green and Red : Device is going to reboot
+
+After boot:
+* Fix Green and fix Red with no blue : Connecting netwok (this freeze device)
+* Fast blink Green and Red : Device is going to reboot
+* Fast short blink Red and Green : heartbeat
+* Slow blink Red : No network connection
+* Slow blink Green : MQTT connection OK
+* No Green and no Red : Network connection OK but no MQTT connection
+
+Wifi device:
+* Fix Blue : Wifi in STA mode
+* Slow blink Blue : Wifi in AP mode
+* No Blue : Not in Wifi mode
 
 ### Button
 
-* During boot (when top left green led blink) user can reset configuration to default by pressing button
+* During boot (when top left green led are on) user can reset device to default by pressing button
 * With Network and MQTT connection, user can force publishing input state by pressing button
-* Without network cable, user can change DHCP mode by pressing button.
+* With network cable disconnected, user can change DHCP mode by pressing button.
 
 
 ## ARDUINO IDE
@@ -109,6 +150,7 @@ For Arduino Finder Opta on its M7 core.
 
 ### Library manager
 
+* `ArduinoHttpClient` by Arduino at https://github.com/arduino-libraries/ArduinoHttpClient
 * `ArduinoJson` by Benoit Blanchon at https://github.com/bblanchon/ArduinoJson.git
 * `MQTT` by Joel Gaehwiler at https://github.com/256dpi/arduino-mqtt
 * `base64` by Densaugeo at https://github.com/Densaugeo/base64_arduino

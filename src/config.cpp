@@ -65,6 +65,30 @@ void config::setNetDhcp(const bool val) {
   _netDhcp = val;
 }
 
+bool config::getNetWifi() const {
+  return _netWifi;
+}
+
+void config::setNetWifi(const bool val) {
+  _netWifi = val;
+}
+
+String config::getNetSsid() const {
+  return _netSsid;
+}
+
+void config::setNetSsid(const String &id) {
+  _netSsid = id;
+}
+
+String config::getNetPassword() const {
+  return _netPassword;
+}
+
+void config::setNetPassword(const String &pass) {
+  _netPassword = pass;
+}
+
 String config::getMqttIp() const {
   return _mqttIp;
 }
@@ -121,7 +145,7 @@ int config::getInputType(int index) const {
 }
 
 int config::setInputType(int index, int type) {
-  if (index >= 0 && index < NUM_INPUTS && (type == PULSE || type == DIGITAL || type == ANALOG)) {
+  if (index >= 0 && index < NUM_INPUTS && (type == INPUT_PULSE || type == INPUT_DIGITAL || type == INPUT_ANALOG)) {
     _inputs[index][1] = type;
     return 0;
   }
@@ -153,7 +177,7 @@ void config::initializePins() {
   analogReadResolution(ADC_BITS);
 
   for (int i = 0; i < NUM_INPUTS; ++i) {
-    if (_inputs[i][1] == DIGITAL || _inputs[i][1] == PULSE) {
+    if (_inputs[i][1] == INPUT_DIGITAL || _inputs[i][1] == INPUT_PULSE) {
       pinMode(_inputs[i][0], INPUT);  // Set pin to digital input
 
       Serial.print(" > Set input ");
@@ -193,6 +217,9 @@ int config::loadFromJson(const char *buffer, size_t length) {
       || !doc.containsKey("devicePassword")
       || !doc.containsKey("netIp")
       || !doc.containsKey("netDhcp")
+      || !doc.containsKey("netWifi")
+      || !doc.containsKey("netSsid")
+      || !doc.containsKey("netPassword")
       || !doc.containsKey("mqttIp")
       || !doc.containsKey("mqttPort")
       || !doc.containsKey("mqttUser")
@@ -209,6 +236,9 @@ int config::loadFromJson(const char *buffer, size_t length) {
   _devicePassword = doc["devicePassword"].as<String>();
   _netIp = doc["netIp"].as<String>();
   _netDhcp = doc["netDhcp"].as<bool>();
+  _netWifi = doc["netWifi"].as<bool>();
+  _netSsid = doc["netSsid"].as<String>();
+  _netPassword = doc["netPassword"].as<String>();
   _mqttIp = doc["mqttIp"].as<String>();
   _mqttPort = doc["mqttPort"].as<int>();
   _mqttUser = doc["mqttUser"].as<String>();
@@ -227,12 +257,15 @@ int config::loadFromJson(const char *buffer, size_t length) {
 String config::toJson(const bool nopass) const {
   DynamicJsonDocument doc(2048);
 
-  doc["version"] = VERSION;
+  doc["version"] = SKETCH_VERSION;
   doc["deviceId"] = _deviceId;
   doc["deviceUser"] = _deviceUser;
   doc["devicePassword"] = nopass ? "" : _devicePassword;
   doc["netIp"] = _netIp;
   doc["netDhcp"] = _netDhcp;
+  doc["netWifi"] = _netWifi;
+  doc["netSsid"] = _netSsid;
+  doc["netPassword"] = nopass ? "" : _netPassword;
   doc["mqttIp"] = _mqttIp;
   doc["mqttPort"] = _mqttPort;
   doc["mqttUser"] = _mqttUser;
@@ -258,6 +291,9 @@ void config::loadDefaults() {
 
   _netIp = DEFAULT_NET_IP;
   _netDhcp = DEFAULT_NET_DHCP;
+  _netWifi = DEFAULT_NET_WIFI;
+  _netSsid = DEFAULT_NET_SSID;
+  _netPassword = DEFAULT_NET_PASSWORD;
 
   _mqttIp = DEFAULT_MQTT_IP;
   _mqttPort = DEFAULT_MQTT_PORT;
@@ -267,20 +303,20 @@ void config::loadDefaults() {
   _mqttInterval = DEFAULT_MQTT_INTERVAL;
 
   _inputs[0][0] = A0;
-  _inputs[0][1] = DIGITAL;
+  _inputs[0][1] = INPUT_DIGITAL;
   _inputs[1][0] = A1;
-  _inputs[1][1] = DIGITAL;
+  _inputs[1][1] = INPUT_DIGITAL;
   _inputs[2][0] = A2;
-  _inputs[2][1] = DIGITAL;
+  _inputs[2][1] = INPUT_DIGITAL;
   _inputs[3][0] = A3;
-  _inputs[3][1] = DIGITAL;
+  _inputs[3][1] = INPUT_DIGITAL;
   _inputs[4][0] = A4;
-  _inputs[4][1] = DIGITAL;
+  _inputs[4][1] = INPUT_DIGITAL;
   _inputs[5][0] = A5;
-  _inputs[5][1] = DIGITAL;
+  _inputs[5][1] = INPUT_DIGITAL;
   _inputs[6][0] = A6;
-  _inputs[6][1] = DIGITAL;
+  _inputs[6][1] = INPUT_DIGITAL;
   _inputs[7][0] = A7;
-  _inputs[7][1] = DIGITAL;
+  _inputs[7][1] = INPUT_DIGITAL;
 }
 }

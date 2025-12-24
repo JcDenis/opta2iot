@@ -14,10 +14,7 @@
  * see README.md file
  */
 
-#if !defined(WEBHTML_H)
-#define WEBHTML_H
-
-#include <Arduino.h>
+#pragma once
 
 namespace opta2iot {
 
@@ -37,10 +34,10 @@ const char htmlHome[] PROGMEM = R"rawliteral(
 
   <div class="box">
     <h2>MQTT</h2>
-    <ul></li>
-      <span>Status: <span id="mqttText">Disconnected</span></span>
+    <ul><li>
+      Status:<span id="mqttStatus" class="led low"></span>
       &nbsp;
-      <span id="mqttStatus" class="led low"></span>
+      <span id="mqttText">Disconnected</span>
     </li></ul>
     <button class="button" id="publishNow">Publish Now</button>
   </div>
@@ -183,13 +180,13 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
       <input type="text" id="deviceUser" name="deviceUser" required>
 
       <label for="devicePassword">Password:</label>
-      <input type="text" id="devicePassword" name="devicePassword">
+      <input type="password" id="devicePassword" name="devicePassword">
       <p class="note">Fill in this field only to change current password.</p>
     </div>
     
     <div class="box">
       <h2>Network</h2>
-        <label for="netIp">IP:</label>
+        <label for="netIp">Static IP:</label>
         <input type="text" id="netIp" name="netIp" required>
         <p class="note">The device IPv4 address if DHCP mode is disabled.</p>
 
@@ -198,6 +195,27 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
           <div class="option-buttons">
             <button type="button" class="option-button" data-input="netDhcp" data-value="1">Enable</button>
             <button type="button" class="option-button selected" data-input="netDhcp" data-value="0">Disable</button>
+          </div>
+        </div>
+    </div>
+    
+    <div class="box">
+      <h2>Wifi</h2>
+        <ul>
+          <li>Only for Opta Wifi board.</li>
+          <li>Enable Wifi and leave SSID empty to use Access Point mode.</li>
+        </ul>
+        <label for="netSsid">SSID:</label>
+        <input type="text" id="netSsid" name="netSsid">
+        <label for="netPassword">Password:</label>
+        <input type="password" id="netPassword" name="netPassword">
+        <p class="note">Fill in this field only to change current password.</p>
+
+        <div class="wifi-toggle input-item">
+          <label for="netWifi">Wifi:</label>
+          <div class="option-buttons">
+            <button type="button" class="option-button" data-input="netWifi" data-value="1">Enable</button>
+            <button type="button" class="option-button selected" data-input="netWifi" data-value="0">Disable</button>
           </div>
         </div>
     </div>
@@ -215,7 +233,7 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
         <input type="text" id="mqttUser" name="mqttUser">
 
         <label for="mqttPassword">Password:</label>
-        <input type="text" id="mqttPassword" name="mqttPassword">
+        <input type="password" id="mqttPassword" name="mqttPassword">
         <p class="note">Fill in this field only to change current password.</p>
 
         <label for="mqttBase">Base topic:</label>
@@ -241,7 +259,7 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
       <input type="text" id="currentUser" name="currentUser" required>
 
       <label for="currentPassword">Current password:</label>
-      <input type="text" id="currentPassword" name="currentPassword">
+      <input type="password" id="currentPassword" name="currentPassword">
 
       <div class="footer">
         <p><button type="submit" class="button">Set Configuration</button></p>
@@ -273,6 +291,20 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
           dhcpButtons.forEach(button => {
             const value = button.getAttribute('data-value');
             if ((value === '1' && data.netDhcp) || (value === '0' && !data.netDhcp)) {
+              button.classList.add('selected');
+            } else {
+              button.classList.remove('selected');
+            }
+          });
+        }
+        
+        document.getElementById('netSsid').value = data.netSsid;
+        document.getElementById('netPassword').value = data.netPassword;
+        if (data.netWifi !== undefined) {
+          const wifiButtons = document.querySelectorAll('.wifi-toggle .option-button');
+          wifiButtons.forEach(button => {
+            const value = button.getAttribute('data-value');
+            if ((value === '1' && data.netWifi) || (value === '0' && !data.netWifi)) {
               button.classList.add('selected');
             } else {
               button.classList.remove('selected');
@@ -336,6 +368,9 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
         devicePassword: formData.get('devicePassword'),
         netIp: formData.get('netIp'),
         netDhcp: false,
+        netWifi: false,
+        netSsid: formData.get('netSsid'),
+        netPassword: formData.get('netPassword'),
         mqttIp: formData.get('mqttIp'),
         mqttPort: formData.get('mqttPort'),
         mqttUser: formData.get('mqttUser'),
@@ -355,6 +390,11 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
       const dhcpButton = document.querySelector('.dhcp-toggle .option-button.selected');
       if (dhcpButton) {
         config.netDhcp = dhcpButton.getAttribute('data-value') === '1';
+      }
+
+      const wifiButton = document.querySelector('.wifi-toggle .option-button.selected');
+      if (wifiButton) {
+        config.netWifi = wifiButton.getAttribute('data-value') === '1';
       }
 
       try {
@@ -383,6 +423,7 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
 const char htmlStyle[] PROGMEM = R"rawliteral(
 body {
   font-family: Arial, sans-serif;
+  font-size: 1.4em;
   margin: 0;
   padding: 0;
   background-color: #f0f0f0;
@@ -404,7 +445,7 @@ body {
 
 .note {
   font-style: italic;
-  font-size: 12px;
+  font-size: 0.8em;
   margin-top: -12px;
   margin-bottom: 15px;
 }
@@ -415,13 +456,22 @@ label {
   font-weight: bold;
 }
 
+input {
+  font-size: 1em;
+}
+
 input[type="text"],
-input[type="number"] {
+input[type="number"],
+input[type="password"] {
   width: 100%;
   padding: 8px;
   margin-bottom: 15px;
   border: 1px solid #ccc;
   border-radius: 4px;
+}
+button[type="submit"],
+button.button {
+  font-size: 1em;
 }
 
 .inputs-container {
@@ -439,7 +489,6 @@ input[type="number"] {
 .button {
   width: 100%;
   padding: 10px;
-  font-size: 16px;
   color: #fff;
   background-color: #0094ce;
   border: none;
@@ -472,7 +521,7 @@ input[type="number"] {
 
 .option-button {
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: 1em;
   border: 1px solid #ccc;
   border-radius: 4px;
   cursor: pointer;
@@ -958,5 +1007,3 @@ const char htmlFavicon[] PROGMEM = {
   0x63, 0x6F, 0x2E, 0x70, 0x6E, 0x67, 0x3D, 0xBB, 0x4F, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 
   0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
 };
-
-#endif  // WEBHTML_H

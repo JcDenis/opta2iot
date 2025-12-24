@@ -14,36 +14,34 @@
  * see README.md file
  */
 
-#if !defined(CONFIG_H)
-#define CONFIG_H
+#pragma once
 
-#include "Arduino.h"
-
-#define DEFAULT_DEVICE_ID "99999"
-#define DEFAULT_DEVICE_USER "admin"
-#define DEFAULT_DEVICE_PASSWORD "admin"
-
-#define DEFAULT_MQTT_IP "192.168.1.100"
-#define DEFAULT_MQTT_PORT 1883
-#define DEFAULT_MQTT_USER "mqtt_user"
-#define DEFAULT_MQTT_PASSWORD "mqtt_password"
-#define DEFAULT_MQTT_BASE "/opta/"
-#define DEFAULT_MQTT_INTERVAL 0
-
-#define DEFAULT_NET_DHCP false
-#define DEFAULT_NET_IP "192.168.1.231"
+#include "default.h"
 
 namespace opta2iot {
 
-constexpr int VERSION = 2025121900;
+constexpr int SKETCH_VERSION = 2025122300;
+
+constexpr int OPTA_NONE = 0;
+constexpr int OPTA_RS485 = 1;
+constexpr int OPTA_WIFI = 2;
+constexpr int OPTA_LITE = 3;
+
+constexpr int NET_NONE = 0;
+constexpr int NET_ETH = 1;
+constexpr int NET_STA = 2;
+constexpr int NET_AP = 3;
+
+constexpr int INPUT_PULSE = 2;
+constexpr int INPUT_DIGITAL = 1;
+constexpr int INPUT_ANALOG = 0;
+
 constexpr int NUM_INPUTS = 8;
 constexpr int NUM_OUTPUTS = 4;
-constexpr int PULSE = 2;
-constexpr int DIGITAL = 1;
-constexpr int ANALOG = 0;
 constexpr int ADC_BITS = 16;
+
 constexpr int CONFIG_RESET_DELAY = 3; // in second
-constexpr int IO_POLL_DELAY = 40; // in millisecond
+constexpr int PINS_POLL_DELAY = 50; // in millisecond
 constexpr int NET_RETRY_DELAY = 30; // in second
 constexpr int MQTT_RETRY_DELAY = 60; // in second
 
@@ -54,7 +52,10 @@ private:
   String _devicePassword;
 
   bool _netDhcp;
+  bool _netWifi;
   String _netIp;
+  String _netSsid;
+  String _netPassword;
 
   String _mqttIp;
   String _mqttUser;
@@ -88,6 +89,15 @@ public:
   bool getNetDhcp() const;
   void setNetDhcp(const bool val);
 
+  bool getNetWifi() const;
+  void setNetWifi(const bool val);
+
+  String getNetSsid() const;
+  void setNetSsid(const String &id);
+
+  String getNetPassword() const;
+  void setNetPassword(const String &pass);
+
   String getMqttIp() const;
   void setMqttIp(const String &ip);
 
@@ -118,7 +128,6 @@ public:
   int loadFromJson(const char *buffer, size_t length);
 
   String toJson(const bool val) const;
-};
-}
+}; // class
 
-#endif  // CONFIG_H
+} // namespace
