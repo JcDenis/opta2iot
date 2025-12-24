@@ -20,7 +20,7 @@
 
 namespace opta2iot {
 
-constexpr int SKETCH_VERSION = 2025121900;
+constexpr int SKETCH_VERSION = 2025122400;
 
 constexpr int OPTA_NONE = 0;
 constexpr int OPTA_RS485 = 1;
@@ -44,6 +44,11 @@ constexpr int CONFIG_RESET_DELAY = 3; // in second
 constexpr int PINS_POLL_DELAY = 50; // in millisecond
 constexpr int NET_RETRY_DELAY = 30; // in second
 constexpr int MQTT_RETRY_DELAY = 60; // in second
+
+constexpr int DO = 1;
+constexpr int OK = 2;
+constexpr int KO = 3;
+constexpr int IN = 4;
 
 class config {
 private:

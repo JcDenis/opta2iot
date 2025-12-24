@@ -62,33 +62,31 @@ Client* webClient = nullptr;  // required to mix wifi and ethernet client
 MQTTClient mqttClient;
 EthernetClient ethernetClient;  // for MQTT
 WiFiClient wifiClient;          // for MQTT
-void mqttPublishDevice();
-void mqttPublishInputs();
 
-void printDo() {
-  Serial.print("* ");
+void print(int action, String str) {
+  String prefix;
+  switch (action) {
+    case DO: prefix = "* "; break;
+    case OK: prefix = " > "; break;
+    case KO: prefix = "!> "; break;
+    case IN: prefix = "?> "; break;
+    default: prefix = "";
+  }
+
+  Serial.println(prefix + str);
 }
-void printIn() {
-  Serial.print("?> ");
-}
-void printKo() {
-  Serial.print("!> ");
-}
-void printOk() {
-  Serial.print(" > ");
-}
+
 void printProgress(uint32_t offset, uint32_t size, uint32_t threshold, bool reset) {
   static int percent_done = 0;
+
   if (reset == true) {
     percent_done = 0;
-    printOk();
-    Serial.println(String(percent_done) + "%");
+    print(OK, String(percent_done) + "%");
   } else {
     uint32_t percent_done_new = offset * 100 / size;
     if (percent_done_new >= percent_done + threshold) {
       percent_done = percent_done_new;
-      printOk();
-      Serial.println(String(percent_done) + "%");
+      print(OK, String(percent_done) + "%");
     }
   }
 }
@@ -127,9 +125,7 @@ void loopAction() {
   if (actionLoopTime > 0) {
     actionLoopCount++;
     if (loopTime - actionLoopTime > 1000) {
-      printOk();
-      Serial.print(actionLoopCount);
-      Serial.println(" loops per second");
+      print(OK, String(actionLoopCount) + " loops per second");
 
       actionLoopTime = actionLoopRepeat < 10 ? loopTime : 0;
       actionLoopCount = 0;
@@ -140,16 +136,14 @@ void loopAction() {
 
 // Start simple loops per second
 void actionLoop() {
-  printDo();
-  Serial.println("Getting loop time");
+  print(DO, "Getting loop time");
   actionLoopTime = loopTime;
   actionLoopCount = 0;
   actionLoopRepeat = 0;
 }
 
 void actionReboot() {
-  printKo();
-  Serial.println("Device reboot");
+  print(KO, "Device reboot");
   if (ledOk) {
     for (int i = 0; i < 10; i++) {
       digitalWrite(LEDR, LOW);
@@ -166,25 +160,19 @@ void actionReboot() {
 }
 
 void actionInfo() {
-  printDo();
-  Serial.println("Getting board informations");
+  print(DO, "Getting board informations");
   if (optaMode == OPTA_NONE) {
-    printKo();
-    Serial.println("Failed to find board information");
+    print(KO, "Failed to find board information");
     return;
   }
-  printOk();
-  Serial.println("Board type: " + getDeviceName());
-  printOk();
-  Serial.println("Board has Ethernet");
+  print(OK, "Board type: " + getDeviceName());
+  print(OK, "Board has Ethernet");
 
   if (optaMode == OPTA_WIFI) {
-    printOk();
-    Serial.println("Board has Wifi");
+    print(OK, "Board has Wifi");
   }
   if (optaMode != OPTA_LITE) {
-    printOk();
-    Serial.println("Board has RS485");
+    print(OK, "Board has RS485");
   }
 }
 
@@ -194,9 +182,7 @@ void actionDhcp() {
   }
 
   bool mode = conf.getNetDhcp() ? false : true;
-  printKo();
-  Serial.print(mode ? "Enabling" : "Disabling");
-  Serial.println(" DHCP mode.");
+  print(KO, String(mode ? "Enabling" : "Disabling") + " DHCP mode.");
 
   conf.setNetDhcp(mode);
   String json = conf.toJson(false);
@@ -209,9 +195,7 @@ void actionWifi() {
   }
 
   bool mode = conf.getNetWifi() ? false : true;
-  printKo();
-  Serial.print(mode ? "Enabling" : "Disabling");
-  Serial.println(" Wifi.");
+  print(KO, String(mode ? "Enabling" : "Disabling") + " Wifi.");
 
   conf.setNetWifi(mode);
   String json = conf.toJson(false);
@@ -219,8 +203,7 @@ void actionWifi() {
 }
 
 void actionReset() {
-  printKo();
-  Serial.println("Resetting configuration to default");
+  print(KO, "Resetting configuration to default");
 
   kv_reset("/kv/");
   conf.loadDefaults();
@@ -243,42 +226,35 @@ void actionFormat(bool force) {
   mbed::FATFileSystem user_data_fs("user");
 
   if (root->init() != mbed::BD_ERROR_OK) {
-    printKo();
-    Serial.println("Error: QSPI init failure");
+    print(KO, "Error: QSPI init failure");
     return;
   }
 
-  printDo();
-  Serial.println("Checking partitions");
+  print(DO, "Checking partitions");
 
   bool perform = false;
   bool perform_user = true;
   if (!wifi_data_fs.mount(&wifi_data)) {
-    printOk();
-    Serial.println("Wifi partition already exist");
+    print(OK, "Wifi partition already exist");
   } else {
     perform = true;
   }
   if (!ota_data_fs.mount(&ota_data)) {
-    printOk();
-    Serial.println("OTA partition already exist");
+    print(OK, "OTA partition already exist");
   } else {
     perform = true;
   }
   if (!user_data_fs.mount(&user_data)) {
-    printOk();
-    Serial.println("User partition already exist");
+    print(OK, "User partition already exist");
     perform_user = false;
   } else {
     perform = true;
   }
   if (perform) {
-    printKo();
-    Serial.println("Partition does not exist");
+    print(OK, "Partition does not exist");
   }
   if (force) {
-    printDo();
-    Serial.println("Forcing partitions creation");
+    print(DO, "Forcing partitions creation");
     perform = true;
   }
 
@@ -287,16 +263,14 @@ void actionFormat(bool force) {
   }
 
   // erase partitions
-  printDo();
   if (force) {
-    Serial.println("Full erasing partitions, please wait...");
+    print(DO, "Full erasing partitions, please wait...");
     root->erase(0x0, root->size());
   } else {
-    Serial.println("Erasing partitions, please wait...");
+    print(DO, "Erasing partitions, please wait...");
     root->erase(0x0, root->get_erase_size());
   }
-  printOk();
-  Serial.println("Erase completed");
+  print(OK, "Erase completed");
 
   mbed::MBRBlockDevice::partition(root, 1, 0x0B, 0, 1 * 1024 * 1024);
   mbed::MBRBlockDevice::partition(root, 2, 0x0B, 1 * 1024 * 1024, 6 * 1024 * 1024);
@@ -305,11 +279,9 @@ void actionFormat(bool force) {
   // use space from 15.5MB to 16 MB for another fw, memory mapped
 
   // format wifi partition
-  printDo();
-  Serial.println("Formatting Wifi partition");
+  print(DO, "Formatting Wifi partition");
   if (wifi_data_fs.reformat(&wifi_data)) {  // not used yet
-    printKo();
-    Serial.println("Error formatting WiFi partition");
+    print(KO, "Error formatting WiFi partition");
     return;
   }
 
@@ -318,16 +290,14 @@ void actionFormat(bool force) {
 
   // flash WiFi Firmware And Certificates
   FILE* fp = fopen("/wlan/4343WA1.BIN", "wb");
-  printDo();
-  Serial.println("Flashing WiFi firmware");
+  print(DO, "Flashing WiFi firmware");
   printProgress(byte_count, file_size, 10, true);
   while (byte_count < file_size) {
     if (byte_count + chunk_size > file_size)
       chunk_size = file_size - byte_count;
     int ret = fwrite(&wifi_firmware_image_data[byte_count], chunk_size, 1, fp);
     if (ret != 1) {
-      printKo();
-      Serial.println("Error writing firmware data");
+      print(KO, "Error writing firmware data");
       break;
     }
     byte_count += chunk_size;
@@ -337,8 +307,7 @@ void actionFormat(bool force) {
 
   fp = fopen("/wlan/cacert.pem", "wb");
 
-  printDo();
-  Serial.println("Flashing certificates");
+  print(DO, "Flashing certificates");
   chunk_size = 128;
   byte_count = 0;
   printProgress(byte_count, cacert_pem_len, 10, true);
@@ -347,8 +316,7 @@ void actionFormat(bool force) {
       chunk_size = cacert_pem_len - byte_count;
     int ret = fwrite(&cacert_pem[byte_count], chunk_size, 1, fp);
     if (ret != 1) {
-      printKo();
-      Serial.println("Error writing certificates");
+      print(KO, "Error writing certificates");
       break;
     }
     byte_count += chunk_size;
@@ -361,16 +329,14 @@ void actionFormat(bool force) {
   byte_count = 0;
   const uint32_t offset = 15 * 1024 * 1024 + 1024 * 512;
 
-  printDo();
-  Serial.println("Flashing memory mapped WiFi firmware");
+  print(DO, "Flashing memory mapped WiFi firmware");
   printProgress(byte_count, file_size, 10, true);
   while (byte_count < file_size) {
     if (byte_count + chunk_size > file_size)
       chunk_size = file_size - byte_count;
     int ret = root->program(wifi_firmware_image_data, offset + byte_count, chunk_size);
     if (ret != 0) {
-      printKo();
-      Serial.println("Error writing memory mapped firmware");
+      print(KO, "Error writing memory mapped firmware");
       break;
     }
     byte_count += chunk_size;
@@ -378,30 +344,61 @@ void actionFormat(bool force) {
   }
 
   // format OTA partition
-  printDo();
-  Serial.println("Formatting OTA partition");
+  print(DO, "Formatting OTA partition");
   if (ota_data_fs.reformat(&ota_data)) {
-    printKo();
-    Serial.println("Error formatting OTA partition");
+    print(KO, "Error formatting OTA partition");
     return;
   }
 
   // format user partition
   if (perform_user) {  // do not erase user partition if it exists !
     user_data_fs.unmount();
-    printDo();
-    Serial.println("Formatting USER partition");
+    print(DO, "Formatting USER partition");
     if (user_data_fs.reformat(&user_data)) {
-      printKo();
-      Serial.println("Error formatting user partition");
+      print(KO, "Error formatting user partition");
       return;
     }
   }
 
-  printDo();
-  Serial.println("* QSPI Flash formatted");
+  print(DO, "QSPI Flash formatted");
 
   formatOk = true;
+}
+
+void actionPublishInputs() {
+  if (!mqttOk) {
+    return;
+  }
+
+  print(DO, "Publishing inputs informations to MQTT");
+
+  String rootTopic = conf.getMqttBase() + conf.getDeviceId() + "/";
+  for (size_t i = 0; i < NUM_INPUTS; i++) {
+    String inTopic = "I" + String(i + 1) + "/";
+    if (conf.getInputType(i) == INPUT_ANALOG) {
+      float value = analogRead(conf.getInputPin(i)) * (3.249 / ((1 << ADC_BITS) - 1)) / 0.3034;
+      char buffer[10];
+      snprintf(buffer, sizeof(buffer), "%0.2f", value);
+      mqttClient.publish(String(rootTopic + inTopic + "val").c_str(), buffer);
+      mqttClient.publish(String(rootTopic + inTopic + "type").c_str(), String(conf.getInputType(i)).c_str());
+    } else {
+      mqttClient.publish(String(rootTopic + inTopic + "val").c_str(), String(digitalRead(conf.getInputPin(i))).c_str());
+      mqttClient.publish(String(rootTopic + inTopic + "type").c_str(), String(conf.getInputType(i)).c_str());
+    }
+  }
+}
+
+void actionPublishDevice() {
+  if (!mqttOk) {
+    return;
+  }
+
+  print(DO, "Publishing device informations to MQTT");
+
+  String rootTopic = conf.getMqttBase() + conf.getDeviceId() + "/device/";
+  mqttClient.publish(String(rootTopic + "type").c_str(), getDeviceName());
+  mqttClient.publish(String(rootTopic + "ip").c_str(), String(getLocalIp()).c_str());
+  mqttClient.publish(String(rootTopic + "version").c_str(), String(SKETCH_VERSION).c_str());
 }
 
 /**
@@ -448,26 +445,21 @@ void loopSerial() {
   if (end) {
     String message = String(serialMessage);
     message.toLowerCase();
-    printDo();
-    Serial.println("Receiving command '" + message + "'");
+    print(DO, "Receiving command '" + message + "'");
     if (message.equals("ip")) {  // print local Ip to terminal
-      printDo();
-      Serial.println("Getting local IP address");
-      printOk();
-      Serial.println(getLocalIp());
+      print(DO, "Getting local IP address");
+      print(OK, String(getLocalIp()));
     }
     if (message.equals("config")) {  // print configuration json to terminal
-      printDo();
-      Serial.println("Getting user configuration");
-      printOk();
-      Serial.println(conf.toJson(false));
+      print(DO, "Getting user configuration");
+      print(OK, conf.toJson(false));
     }
     if (message.equals("info")) {  // print board info to terminal
       actionInfo();
     }
     if (message.equals("publish")) {  // publish to mqtt device info and inputs state
-      mqttPublishDevice();
-      mqttPublishInputs();
+      actionPublishDevice();
+      actionPublishInputs();
     }
     if (message.equals("reboot")) {  // reboot device
       actionReboot();
@@ -656,8 +648,7 @@ void setupConfig() {
   pinMode(BTN_USER, INPUT);  // init USER button
 
   // read flash
-  printOk();
-  Serial.println("Reading configuration from flash");
+  print(OK, "Reading configuration from flash");
   char readBuffer[1024];
   kv_get("config", readBuffer, 1024, 0);
 
@@ -665,8 +656,7 @@ void setupConfig() {
   bool force = false;
   bool perform = false;
   if (conf.loadFromJson(readBuffer, 1024) < 1) {
-    printKo();
-    Serial.println("Configuration not found");
+    print(OK, "Configuration not found");
     perform = true;
   }
 
@@ -674,8 +664,7 @@ void setupConfig() {
   if (!perform) {
 
     ledFreeze(true);
-    printIn();
-    Serial.print("Hold the user button to fully reset device. Waiting ");
+    print(IN, "Hold the user button to fully reset device. Waiting ");
     for (int i = CONFIG_RESET_DELAY; i > 0; i--) {
       Serial.print(i);
       delay(500);
@@ -685,8 +674,7 @@ void setupConfig() {
     Serial.println();
 
     if (!digitalRead(BTN_USER)) {
-      printIn();
-      Serial.print("Hold the user button to confirm fully reset device. Waiting ");
+      print(IN, "Hold the user button to confirm fully reset device. Waiting ");
       for (int i = CONFIG_RESET_DELAY; i > 0; i--) {
         Serial.print(i);
         delay(500);
@@ -696,8 +684,7 @@ void setupConfig() {
       Serial.println();
 
       if (!digitalRead(BTN_USER)) {
-        printKo();
-        Serial.println("Reset from button");
+        print(OK, "Reset from button");
         perform = true;
         force = true;
       }
@@ -709,8 +696,7 @@ void setupConfig() {
   if (perform) {
     actionReset();
 
-    printDo();
-    Serial.println("Reading configuration");
+    print(DO, "Reading configuration");
     kv_get("config", readBuffer, 1024, 0);
     conf.loadFromJson(readBuffer, 1024);
 
@@ -721,19 +707,20 @@ void setupConfig() {
       }
     }
   } else {
-    printOk();
-    Serial.println("Configuration found");
+    print(OK, "Configuration found");
   }
 
   // configure board IO pins
-  printDo();
-  Serial.println("Configuring IO board pins");
+  print(DO, "Configuring IO board pins");
   conf.initializePins();
 
   configOk = true;
 }
 
 void loopConfig() {
+  static unsigned int pinsLastPoll = 0;
+  static String prev_di_mask[NUM_INPUTS];
+
   // if no ethernet cable plugged and User button push: switch DHCP mode in config and reboot
   if (!netOk && !digitalRead(BTN_USER)) {
     actionDhcp();
@@ -741,9 +728,6 @@ void loopConfig() {
   }
 
   // poll input
-  static unsigned int pinsLastPoll = 0;
-  static String prev_di_mask[NUM_INPUTS];
-
   if (loopTime - pinsLastPoll > PINS_POLL_DELAY) {  // Inputs loop delay
     String cur_di_mask[NUM_INPUTS];
     for (size_t i = 0; i < NUM_INPUTS; i++) {
@@ -768,8 +752,7 @@ void loopConfig() {
             mqttClient.publish(String(rootTopic + inTopic + "/type").c_str(), String(conf.getInputType(i)).c_str());
           }
 
-          printOk();
-          Serial.println(String("[" + inTopic + "] " + prev_di_mask[i] + " => " + cur_di_mask[i]).c_str());
+          print(OK, String("[" + inTopic + "] " + prev_di_mask[i] + " => " + cur_di_mask[i]).c_str());
         }
         prev_di_mask[i] = cur_di_mask[i];
       }
@@ -788,27 +771,22 @@ void netEthernetConnect() {
 
   ledFreeze(true);
   if (conf.getNetDhcp()) {
-    printDo();
-    Serial.println("Configuring Ethernet using DHCP");
+    print(DO, "Configuring Ethernet using DHCP");
     ret = Ethernet.begin();  // If failed this can take 1 minute long...
   } else {
-    printDo();
-    Serial.println("Configuring Ethernet using static IP");
+    print(DO, "Configuring Ethernet using static IP");
     ret = Ethernet.begin(parseIp(conf.getNetIp()));  // If failed this can take 1 minute long...
   }
   ledFreeze(false);
 
   if (ret == 0) {
-    printKo();
-    Serial.println("Network connection failed.");
+    print(KO, "Network connection failed.");
     if (Ethernet.linkStatus() == LinkOFF) {
-      printKo();
-      Serial.println("Ethernet cable not connected.");
+      print(KO, "Ethernet cable not connected.");
     }
     netOk = false;
   } else {
-    printOk();
-    Serial.print("Network connected with IP ");
+    print(KO, "Network connected with IP ");
     Serial.println(Ethernet.localIP());
     netOk = true;
   }
@@ -822,8 +800,7 @@ void netWifiStaConnect() {
   netApSsid.toCharArray(ssid, sizeof(ssid));
   netApPass.toCharArray(pass, sizeof(pass));
 
-  printDo();
-  Serial.print("Configuring Wifi with SSID '" + netApSsid + "' and password '" + netApPass + "'");
+  print(DO, "Configuring Wifi with SSID '" + netApSsid + "' and password '" + netApPass + "'");
   if (conf.getNetDhcp()) {
     Serial.println(" and using DHCP");
   } else {
@@ -836,25 +813,21 @@ void netWifiStaConnect() {
   ledFreeze(false);
 
   if (ret != WL_CONNECTED) {
-    printKo();
-    Serial.println("Failed to connect Wifi");
+    print(KO, "Failed to connect Wifi");
 
     netOk = false;
   } else {
-    printOk();
-    Serial.println("Wifi connected");
+    print(OK, "Wifi connected");
     netOk = true;
   }
 }
 
 void setupNetEthernet() {
-  printDo();
-  Serial.println("Configuring Ethernet network");
+  print(DO, "Configuring Ethernet network");
   netMode = NET_ETH;
 
   if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-    printKo();
-    Serial.println("Communication with Ethernet module failed");
+    print(KO, "Communication with Ethernet module failed");
     return;
   }
 
@@ -862,13 +835,11 @@ void setupNetEthernet() {
 }
 
 void setupNetWifiSta() {
-  printDo();
-  Serial.println("Configuring Wifi standard network");
+  print(DO, "Configuring Wifi standard network");
   netMode = NET_STA;
 
   if (WiFi.status() == WL_NO_MODULE) {
-    printKo();
-    Serial.println("Communication with WiFi module failed");
+    print(KO, "Communication with WiFi module failed");
     return;
   }
 
@@ -876,13 +847,11 @@ void setupNetWifiSta() {
 }
 
 void setupNetWifiAp() {
-  printDo();
-  Serial.println("Configuring Wifi Access Point network");
+  print(DO, "Configuring Wifi Access Point network");
   netMode = NET_AP;
 
   if (WiFi.status() == WL_NO_MODULE) {
-    printKo();
-    Serial.println("Communication with WiFi module failed");
+    print(KO, "Communication with WiFi module failed");
     return;
   }
 
@@ -893,8 +862,7 @@ void setupNetWifiAp() {
   netApSsid.toCharArray(ssid, sizeof(ssid));
   netApPass.toCharArray(pass, sizeof(pass));
 
-  printDo();
-  Serial.println("Configuraing Wifi using SSID '" + netApSsid + "' and password '" + netApPass + "' and IP " + conf.getNetIp());
+  print(DO, "Configuraing Wifi using SSID '" + netApSsid + "' and password '" + netApPass + "' and IP " + conf.getNetIp());
 
   WiFi.config(parseIp(conf.getNetIp()));
 
@@ -903,28 +871,24 @@ void setupNetWifiAp() {
   ledFreeze(false);
 
   if (ret != WL_AP_LISTENING) {
-    printKo();
-    Serial.println("Failed to create Wifi Access Point");
+    print(KO, "Failed to create Wifi Access Point");
 
     netOk = false;
   } else {
-    printOk();
-    Serial.println("Wifi access point listening");
+    print(OK, "Wifi access point listening");
     netOk = true;
   }
 }
 
 void setupNet() {
-  printDo();
-  Serial.println("Selecting network mode");
+  print(DO, "Selecting network mode");
 
   if (ledOk) {
     digitalWrite(LEDR, HIGH);
   }
 
   if (optaMode == OPTA_NONE) {
-    printKo();
-    Serial.println("Failed to find device type");
+    print(KO, "Failed to find device type");
     return;
   }
 
@@ -945,14 +909,13 @@ void setupNet() {
   delay(1000);
 
   if (netOk && configOk && conf.getNetDhcp()) {
-    printOk();
-    Serial.print("DHCP attributed IP is ");
-    Serial.println(getLocalIp());
+    print(OK, "DHCP attributed IP is " + String(getLocalIp()));
   }
 }
 
 void loopNetEthernet() {
   static unsigned long netLastRetry = 0;
+
   // mauvaise condition
   if (netLastRetry > 0 && loopTime < netLastRetry + (NET_RETRY_DELAY * 1000)) {
     if (netOk) {
@@ -963,13 +926,11 @@ void loopNetEthernet() {
     }
   }
   if (!netOk && Ethernet.linkStatus() == LinkON) {
-    printOk();
-    Serial.println("Ethernet cable connected");
+    print(OK, "Ethernet cable connected");
     netOk = true;
   }
   if (netOk && Ethernet.linkStatus() != LinkON) {
-    printOk();
-    Serial.println("Ethernet cable disconnected");
+    print(KO, "Ethernet cable disconnected");
     netOk = false;
   }
   if (netOk && Ethernet.linkStatus() == LinkON) {
@@ -980,6 +941,7 @@ void loopNetEthernet() {
 
 void loopNetWifiSta() {
   static unsigned long netLastRetry = 0;
+
   if (netOk || (netLastRetry > 0 && loopTime > netLastRetry + (NET_RETRY_DELAY * 1000))) {
     return;
   }
@@ -991,16 +953,15 @@ void loopNetWifiSta() {
 void loopNetWifiAp() {
   static unsigned int firstLoop = 1;
   static int status = WL_IDLE_STATUS;
+
   if (status != WiFi.status()) {
     status = WiFi.status();
 
     if (status == WL_AP_CONNECTED) {
-      printOk();
-      Serial.println("Device connected to AP");
+      print(OK, "Device connected to AP");
     } else if (firstLoop == 1) {  // do not display message on startup
       firstLoop = 0;
-      printOk();
-      Serial.println("Device disconnected from AP");
+      print(KO, "Device disconnected from AP");
     }
   }
 }
@@ -1024,12 +985,11 @@ void setupWeb() {
   }
 
   ledFreeze(true);
-  printDo();
   if (netMode == NET_ETH) {
-    Serial.println("Configuring Ethernet Web server");
+    print(DO, "Configuring Ethernet Web server");
     ethernetServer.begin();
   } else {
-    Serial.println("Configuring Wifi Web server");
+    print(DO, "Configuring Wifi Web server");
     wifiServer.begin();
   }
   ledFreeze(false);
@@ -1148,8 +1108,7 @@ void webReceiveConfig(Client*& client) {
   config oldConf = conf;
   String jsonString = "";
 
-  printDo();
-  Serial.println("Parsing received configuration");
+  print(DO, "Parsing received configuration");
   while (client->available()) {
     String line = client->readStringUntil('\n');  // Read line-by-line
 
@@ -1163,32 +1122,26 @@ void webReceiveConfig(Client*& client) {
 
   if (!isValid || conf.loadFromJson(jsonString.c_str(), jsonString.length()) < 1) {
     isValid = false;
-    printKo();
-    Serial.println("Failed to load configuration from response");
+    print(KO, "Failed to load configuration from response");
   } else {
     if (conf.getDeviceId() == "") {  // device ID must be set
       isValid = false;
-      printKo();
-      Serial.println("Missing device ID");
+      print(KO, "Missing device ID");
     }
     if (conf.getDeviceUser() == "") {  // device user must be set
       isValid = false;
-      printKo();
-      Serial.println("Missing device user");
+      print(KO, "Missing device user");
     }
     if (conf.getDevicePassword() == "") {  // get old device password if none set
-      printOk();
-      Serial.println("Get previous device password");
+      print(OK, "Get previous device password");
       conf.setDevicePassword(oldConf.getDevicePassword());
     }
     if (conf.getNetPassword() == "" && conf.getNetSsid() != "") {  // get old wifi password if none set
-      printOk();
-      Serial.println("Get previous Wifi password");
+      print(OK, "Get previous Wifi password");
       conf.setNetPassword(oldConf.getNetPassword());
     }
     if (conf.getMqttPassword() == "" && conf.getMqttUser() != "") {  // get old mqtt password if none set
-      printOk();
-      Serial.println("Get previous MQTT password");
+      print(OK, "Get previous MQTT password");
       conf.setMqttPassword(oldConf.getMqttPassword());
     }
   }
@@ -1201,8 +1154,7 @@ void webReceiveConfig(Client*& client) {
     client->println("{\"status\":\"success\",\"message\":\"Configuration updated\"}");
     client->stop();
 
-    printDo();
-    Serial.println("Writing new configuration to flash");
+    print(DO, "Writing new configuration to flash");
     String newJson = conf.toJson(false);
     kv_set("config", newJson.c_str(), newJson.length(), 0);
 
@@ -1219,8 +1171,8 @@ void webReceiveConfig(Client*& client) {
 
 void webReceivePublish(Client*& client) {
   delay(1000);
-  mqttPublishDevice();
-  mqttPublishInputs();
+  actionPublishDevice();
+  actionPublishInputs();
 
   client->println("HTTP/1.1 200 OK");
   client->println("Cache-Control: no-cache");
@@ -1333,22 +1285,17 @@ void loopWeb() {
  */
 
 void mqttReceive(String& topic, String& payload) {
-  printOk();
-  Serial.println("Received " + topic + ": " + payload);
+  print(OK, "Received " + topic + ": " + payload);
 
   String match = conf.getMqttBase() + conf.getDeviceId() + "/device/get";
   if (topic == match) {
-    mqttPublishDevice();
+    actionPublishDevice();
   }
 
   for (size_t i = 0; i < NUM_OUTPUTS; i++) {
     String match = conf.getMqttBase() + conf.getDeviceId() + "/O" + String(i + 1);
     if (topic == match) {
-      printOk();
-      Serial.print("Setting output ");
-      Serial.print((i + 1));
-      Serial.print(" to ");
-      Serial.println(payload.toInt());
+      print(OK, "Setting output " + String(i + 1) + " to " + payload);
 
       digitalWrite(conf.getOutputPin(i), payload.toInt());
       digitalWrite(conf.getOutputLed(i), payload.toInt());
@@ -1356,46 +1303,9 @@ void mqttReceive(String& topic, String& payload) {
   }
 }
 
-void mqttPublishInputs() {
-  if (!mqttOk) {
-    return;
-  }
-
-  printDo();
-  Serial.println("Publishing inputs informations to MQTT");
-
-  String rootTopic = conf.getMqttBase() + conf.getDeviceId() + "/";
-  for (size_t i = 0; i < NUM_INPUTS; i++) {
-    String inTopic = "I" + String(i + 1) + "/";
-    if (conf.getInputType(i) == INPUT_ANALOG) {
-      float value = analogRead(conf.getInputPin(i)) * (3.249 / ((1 << ADC_BITS) - 1)) / 0.3034;
-      char buffer[10];
-      snprintf(buffer, sizeof(buffer), "%0.2f", value);
-      mqttClient.publish(String(rootTopic + inTopic + "val").c_str(), buffer);
-      mqttClient.publish(String(rootTopic + inTopic + "type").c_str(), String(conf.getInputType(i)).c_str());
-    } else {
-      mqttClient.publish(String(rootTopic + inTopic + "val").c_str(), String(digitalRead(conf.getInputPin(i))).c_str());
-      mqttClient.publish(String(rootTopic + inTopic + "type").c_str(), String(conf.getInputType(i)).c_str());
-    }
-  }
-}
-
-void mqttPublishDevice() {
-  if (!mqttOk) {
-    return;
-  }
-
-  printDo();
-  Serial.println("Publishing device informations to MQTT");
-
-  String rootTopic = conf.getMqttBase() + conf.getDeviceId() + "/device/";
-  mqttClient.publish(String(rootTopic + "type").c_str(), getDeviceName());
-  mqttClient.publish(String(rootTopic + "ip").c_str(), String(getLocalIp()).c_str());
-  mqttClient.publish(String(rootTopic + "version").c_str(), String(SKETCH_VERSION).c_str());
-}
-
 void mqttConnect() {
   static unsigned long mqttLastRetry = 0;
+
   if (!netOk) {
     mqttOk = false;
     return;
@@ -1412,8 +1322,7 @@ void mqttConnect() {
 
   mqttOk = false;
   mqttLastRetry = loopTime;
-  printDo();
-  Serial.println("Connecting to MQTT broker");
+  print(DO, "Connecting to MQTT broker");
 
   String clientIdStr = conf.getDeviceId();
   String usernameStr = conf.getMqttUser();
@@ -1427,45 +1336,40 @@ void mqttConnect() {
 
   ledFreeze(true);
   if (!mqttClient.connect(clientId, username, password, false)) {
-    printKo();
-    Serial.println("Failed to connect to MQTT broker");
+    print(KO, "Failed to connect to MQTT broker");
     ledFreeze(false);
     return;
   }
   ledFreeze(false);
 
-  printOk();
-  Serial.println("MQTT broker found");
+  print(OK, "MQTT broker found");
   mqttOk = true;
 
   String topic = conf.getMqttBase() + conf.getDeviceId() + "/device/get";  // command for device information
   mqttClient.subscribe(topic);
-  printOk();
-  Serial.println("Subcribed to " + topic);
+  print(OK, "Subcribed to " + topic);
 
   for (size_t i = 0; i < NUM_OUTPUTS; i++) {
     String topic = conf.getMqttBase() + conf.getDeviceId() + "/O" + String(i + 1);  // command for outputs
     mqttClient.subscribe(topic);
-    printOk();
-    Serial.println("Subcribed to " + topic);
+    print(OK, "Subcribed to " + topic);
   }
 
-  mqttPublishDevice();
+  actionPublishDevice();
 }
 
 void loopMqtt() {
+  static unsigned int mqttSetup = 0;
+  static unsigned long mqttLastPublish = 0;
+
   if (!netOk) {
     return;
   }
 
-  static unsigned int mqttSetup = 0;
-  static unsigned long mqttLastPublish = 0;
-
   if (mqttSetup == 0) {
     mqttSetup = 1;
 
-    printDo();
-    Serial.println("Configuring MQTT on server " + conf.getMqttIp() + ":" + String(conf.getMqttPort()));
+    print(DO, "Configuring MQTT on server " + conf.getMqttIp() + ":" + String(conf.getMqttPort()));
 
     ledFreeze(true);
     if (netMode == NET_ETH) {
@@ -1485,16 +1389,16 @@ void loopMqtt() {
   }
 
   if (!digitalRead(BTN_USER)) {  // publish to MQTT on button USER push
-    mqttPublishDevice();
-    mqttPublishInputs();
+    actionPublishDevice();
+    actionPublishInputs();
     delay(500);
   }
 
   if (mqttOk && conf.getMqttInterval() > 0 && loopTime - mqttLastPublish > (unsigned int)(conf.getMqttInterval() * 1000)) {
     mqttLastPublish = loopTime;
 
-    mqttPublishDevice();
-    mqttPublishInputs();
+    actionPublishDevice();
+    actionPublishInputs();
   }
 
   mqttClient.loop();
