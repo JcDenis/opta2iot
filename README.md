@@ -112,18 +112,18 @@ Available web server entrypoints are:
 * `GET /favicon.ico` : Icon for HTML pages
 * `GET /publish` : Publish to MQTT device and inputs state
 
-**Note:** All pages require basic autehntication !
+**Note:** All pages require basic authentication !
 
 ### LED
 
 During boot:
 * Fix Green and Red : Waiting for user to press button to fully reset device
-* Fast blink Green and Red : Device is going to reboot
+* Fast blink Green to Red : Device is going to reboot
 
 After boot:
-* Fix Green and fix Red with no blue : Connecting netwok (this freeze device)
-* Fast blink Green and Red : Device is going to reboot
-* Fast short blink Red and Green : heartbeat
+* Fix Green and fix Red with no blue : Connecting networks (this freeze device)
+* Fast blink Green to Red : Device is going to reboot
+* Fast short blink Green and Red : heartbeat
 * Slow blink Red : No network connection
 * Slow blink Green : MQTT connection OK
 * No Green and no Red : Network connection OK but no MQTT connection
@@ -135,7 +135,7 @@ Wifi device:
 
 ### Button
 
-* During boot (when top left green led are on) user can reset device to default by pressing button
+* During boot, on fix green and red LEDS, user can reset device to default by pressing buttonc:\Users\Jean-Christain Denis\Documents\Arduino\opta2iot\src\opta2iot.h
 * With Network and MQTT connection, user can force publishing input state by pressing button
 * With network cable disconnected, user can change DHCP mode by pressing button.
 
