@@ -135,7 +135,7 @@ Wifi device:
 
 ### Button
 
-* During boot, on fix green and red LEDS, user can reset device to default by pressing buttonc:\Users\Jean-Christain Denis\Documents\Arduino\opta2iot\src\opta2iot.h
+* During boot, on fix green and red LEDS, user can reset device to default by pressing button
 * With Network and MQTT connection, user can force publishing input state by pressing button
 * With network cable disconnected, user can change DHCP mode by pressing button.
 
