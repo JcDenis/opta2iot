@@ -24,7 +24,7 @@ The goal of this sketch is to implement an easy to use MQTT gateway for industri
 * Configurable inputs (pulse, digital, analog)
 * Serial commands
 * Password protected Web server for visualization and configuration
-* Peristent configration storage in flash memory
+* Persistent configuration storage in flash memory
 * Lite and fast loop to keep MQTT publishing of input change state under 50ms
 
 
