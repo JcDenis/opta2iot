@@ -16,8 +16,8 @@ The goal of this sketch is to implement an easy to use MQTT gateway for industri
 
 ## Features
 
-* Suuport Opta RS485 AFX00001, Opta Wifi AFX00002, Opta Lite AFX00003 
-* Partition formatting (first boot or on demand) with Wifi firmware update
+* Support Opta RS485 AFX00001, Opta Wifi AFX00002, Opta Lite AFX00003 
+* Partition formating (first boot or on demand) with Wifi firmware update
 * Configurable Ethernet with DHCP or static IP
 * Configurable Wifi STA or AP and with DHCP or static IP
 * Configurable bidirectionnal MQTT Client with password support 
