@@ -25,8 +25,6 @@
 #include <mbed_mktime.h>
 #include <MQTT.h>
 #include "opta_info.h"
-#include "KVStore.h"
-#include "kvstore_global_api.h"
 #include "BlockDevice.h"
 #include "MBRBlockDevice.h"
 #include "FATFileSystem.h"
@@ -204,8 +202,7 @@ void actionDhcp() {
   print(KO, String(mode ? "Enabling" : "Disabling") + " DHCP mode.");
 
   conf.setNetDhcp(mode);
-  String json = conf.toJson(false);
-  kv_set("config", json.c_str(), json.length(), 0);
+  conf.toFile();
 }
 
 void actionWifi() {
@@ -217,17 +214,13 @@ void actionWifi() {
   print(KO, String(mode ? "Enabling" : "Disabling") + " Wifi.");
 
   conf.setNetWifi(mode);
-  String json = conf.toJson(false);
-  kv_set("config", json.c_str(), json.length(), 0);
+  conf.toFile();
 }
 
 void actionReset() {
   print(KO, "Resetting configuration to default");
 
-  kv_reset("/kv/");
-  conf.loadDefaults();
-  String def = conf.toJson(false);
-  kv_set("config", def.c_str(), def.length(), 0);
+  conf.resetFile();
 }
 
 
@@ -678,7 +671,7 @@ void setupButton() {
 
 void loopButton() {
   static unsigned long btnPressStart = 0;
-  static unsigned long btnPressLength  = 0;
+  static unsigned long btnPressLength = 0;
 
   if (!digitalRead(BTN_USER)) {
     if (btnPressStart == 0) {
@@ -686,7 +679,7 @@ void loopButton() {
     }
     btnPressLength = loopTime - btnPressStart;
   } else if (btnPressStart > 0) {
-      btnPressStart = 0;
+    btnPressStart = 0;
   }
 
   // wait button release
@@ -729,56 +722,35 @@ void loopButton() {
 void setupConfig() {
   // read flash
   print(OK, "Reading configuration from flash");
-  char readBuffer[1024];
-  kv_get("config", readBuffer, 1024, 0);
 
-  // not found
-  bool force = false;
-  bool perform = false;
-  if (conf.loadFromJson(readBuffer, 1024) < 1) {
+  bool ret = conf.fromFile();
+
+  // configuartion file not found
+  if (!ret) {
     print(OK, "Configuration not found");
-    perform = true;
-  }
 
-  // wait user button press
-  if (!perform && buttonOk) {
+    // wait user button press
+  } else if (buttonOk) {
+    print(OK, "Configuration found");
+    print(IN, "Hold the user button to fully reset device. Waiting ");
 
     ledFreeze(true);
-    print(IN, "Hold the user button to fully reset device. Waiting ");
     unsigned long start = 0;
     for (int i = CONFIG_RESET_DELAY; i >= 0; i--) {
       start = millis();
-      while(!digitalRead(BTN_USER)) {
+      while (!digitalRead(BTN_USER)) {
         if (start + 3000 < millis()) {
-          print(OK, "Reset from button");
-          perform = true;
-          force = true;
-          i = 0;
+          actionReset();
+          i = -1;
           break;
         }
       }
-      delay(1000);
-      print(OK, String(i));
-    }
-    ledFreeze(false);
-  }
-
-  // reset config
-  if (perform) {
-    actionReset();
-
-    print(DO, "Reading configuration");
-    kv_get("config", readBuffer, 1024, 0);
-    conf.loadFromJson(readBuffer, 1024);
-
-    if (force) {
-      actionFormat(true);
-      if (formatOk) {
-        actionReboot();
+      if (i >= 0) {
+        delay(1000);
+        print(OK, String(i));
       }
     }
-  } else {
-    print(OK, "Configuration found");
+    ledFreeze(false);
   }
 
   // configure board IO pins
@@ -1017,7 +989,7 @@ void loopNetWifiSta() {
 }
 
 void loopNetWifiAp() {
-  static unsigned int firstLoop = 1;
+  static bool firstLoop = true;
   static int status = WL_IDLE_STATUS;
 
   if (status != WiFi.status()) {
@@ -1025,8 +997,9 @@ void loopNetWifiAp() {
 
     if (status == WL_AP_CONNECTED) {
       print(OK, "Device connected to AP");
-    } else if (firstLoop == 1) {  // do not display message on startup
-      firstLoop = 0;
+    } else if (firstLoop) {  // do not display message on startup
+      firstLoop = false;
+    } else {
       print(KO, "Device disconnected from AP");
     }
   }
@@ -1059,7 +1032,7 @@ void ntpUpdate(UDP& udp) {
 }
 
 void loopNtp() {
-  if (!netOk || ntpOk) {
+  if (!netOk || ntpOk || netMode == NET_AP) {
     return;
   }
 
@@ -1238,7 +1211,7 @@ void webReceiveConfig(Client*& client) {
       conf.setDevicePassword(oldConf.getDevicePassword());
     }
     int offset = conf.getTimeOffset();
-    if (offset > 24 || offset < -24) { // time offset must be in this day
+    if (offset > 24 || offset < -24) {  // time offset must be in this day
       conf.setTimeOffset(0);
     }
     if (conf.getNetPassword() == "" && conf.getNetSsid() != "") {  // get old wifi password if none set
@@ -1260,8 +1233,7 @@ void webReceiveConfig(Client*& client) {
     client->stop();
 
     print(DO, "Writing new configuration to flash");
-    String newJson = conf.toJson(false);
-    kv_set("config", newJson.c_str(), newJson.length(), 0);
+    conf.toFile();
 
     actionReboot();
   } else {

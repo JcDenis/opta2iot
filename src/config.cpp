@@ -16,6 +16,8 @@
 
 #include <ArduinoJson.h>
 #include <Arduino.h>
+#include "KVStore.h"
+#include "kvstore_global_api.h"
 
 #include "config.h"
 
@@ -189,7 +191,7 @@ void config::initializePins() {
       pinMode(_inputs[i][0], INPUT);  // Set pin to digital input
 
       Serial.print(" > Set input ");
-      Serial.print(i+1);
+      Serial.print(i + 1);
       Serial.print(" on pin ");
       Serial.print(_inputs[i][0]);
       Serial.print(" with type ");
@@ -203,7 +205,7 @@ void config::initializePins() {
     digitalWrite(_outputsLed[i], LOW);
 
     Serial.print(" > Set output ");
-    Serial.print(i+1);
+    Serial.print(i + 1);
     Serial.print(" on pin ");
     Serial.print(_outputs[i]);
     Serial.print(" with led pin ");
@@ -220,22 +222,22 @@ int config::loadFromJson(const char *buffer, size_t length) {
     return -1;
   }
 
-  if (!doc.containsKey("deviceId")
-      || !doc.containsKey("deviceUser")
-      || !doc.containsKey("devicePassword")
-      || !doc.containsKey("timeOffset")
-      || !doc.containsKey("netIp")
-      || !doc.containsKey("netDhcp")
-      || !doc.containsKey("netWifi")
-      || !doc.containsKey("netSsid")
-      || !doc.containsKey("netPassword")
-      || !doc.containsKey("mqttIp")
-      || !doc.containsKey("mqttPort")
-      || !doc.containsKey("mqttUser")
-      || !doc.containsKey("mqttPassword")
-      || !doc.containsKey("mqttBase")
-      || !doc.containsKey("mqttInterval")
-      || !doc.containsKey("inputs")) {
+  if (doc["deviceId"].isNull()
+      || doc["deviceUser"].isNull()
+      || doc["devicePassword"].isNull()
+      || doc["timeOffset"].isNull()
+      || doc["netIp"].isNull()
+      || doc["netDhcp"].isNull()
+      || doc["netWifi"].isNull()
+      || doc["netSsid"].isNull()
+      || doc["netPassword"].isNull()
+      || doc["mqttIp"].isNull()
+      || doc["mqttPort"].isNull()
+      || doc["mqttUser"].isNull()
+      || doc["mqttPassword"].isNull()
+      || doc["mqttBase"].isNull()
+      || doc["mqttInterval"].isNull()
+      || doc["inputs"].isNull()) {
     Serial.println("Missing required keys in JSON");
     return -1;
   }
@@ -330,5 +332,32 @@ void config::loadDefaults() {
   _inputs[6][1] = INPUT_DIGITAL;
   _inputs[7][0] = A7;
   _inputs[7][1] = INPUT_DIGITAL;
+}
+
+bool config::toFile() {
+  String def = config::toJson(false);
+  kv_set("config", def.c_str(), def.length(), 0);
+
+  return true;
+}
+
+bool config::resetFile() {
+  kv_reset("/kv/");
+  config::loadDefaults();
+  config::toFile();
+
+  return true;
+}
+
+bool config::fromFile() {
+  bool ret = true;
+  char readBuffer[1024];
+  kv_get("config", readBuffer, 1024, 0);
+  if (config::loadFromJson(readBuffer, 1024) < 1) {
+    config::resetFile();
+    ret = false;
+  }
+
+  return ret;
 }
 }

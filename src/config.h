@@ -20,7 +20,7 @@
 
 namespace opta2iot {
 
-constexpr int SKETCH_VERSION = 2025122600;
+constexpr int SKETCH_VERSION = 2025122601;
 
 constexpr int OPTA_NONE = 0;
 constexpr int OPTA_RS485 = 1;
@@ -40,17 +40,17 @@ constexpr int NUM_INPUTS = 8;
 constexpr int NUM_OUTPUTS = 4;
 constexpr int ADC_BITS = 16;
 
-constexpr int CONFIG_RESET_DELAY = 3; // in second
-constexpr int PINS_POLL_DELAY = 50; // in millisecond
-constexpr int NET_RETRY_DELAY = 30; // in second
-constexpr int MQTT_RETRY_DELAY = 60; // in second
+constexpr int CONFIG_RESET_DELAY = 3;  // in second
+constexpr int PINS_POLL_DELAY = 50;    // in millisecond
+constexpr int NET_RETRY_DELAY = 30;    // in second
+constexpr int MQTT_RETRY_DELAY = 60;   // in second
 
 constexpr int DO = 1;
 constexpr int OK = 2;
 constexpr int KO = 3;
 constexpr int IN = 4;
 
-constexpr const char* TIME_SERVER = "pool.ntp.org";
+constexpr const char *TIME_SERVER = "pool.ntp.org";
 
 class config {
 private:
@@ -73,8 +73,8 @@ private:
   int _mqttInterval;
 
   int _inputs[NUM_INPUTS][2];
-  const int _outputs[NUM_OUTPUTS] = {D0, D1, D2, D3};
-  const int _outputsLed[NUM_OUTPUTS] = {LED_D0, LED_D1, LED_D2, LED_D3};
+  const int _outputs[NUM_OUTPUTS] = { D0, D1, D2, D3 };
+  const int _outputsLed[NUM_OUTPUTS] = { LED_D0, LED_D1, LED_D2, LED_D3 };
 
 public:
   config();
@@ -139,6 +139,10 @@ public:
   int loadFromJson(const char *buffer, size_t length);
 
   String toJson(const bool val) const;
-}; // class
 
-} // namespace
+  bool resetFile();
+  bool fromFile();
+  bool toFile();
+};  // class
+
+}  // namespace
