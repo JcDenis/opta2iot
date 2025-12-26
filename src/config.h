@@ -20,7 +20,7 @@
 
 namespace opta2iot {
 
-constexpr int SKETCH_VERSION = 2025122500;
+constexpr int SKETCH_VERSION = 2025122600;
 
 constexpr int OPTA_NONE = 0;
 constexpr int OPTA_RS485 = 1;
