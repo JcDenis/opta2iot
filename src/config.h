@@ -50,11 +50,14 @@ constexpr int OK = 2;
 constexpr int KO = 3;
 constexpr int IN = 4;
 
+constexpr const char* TIME_SERVER = "pool.ntp.org";
+
 class config {
 private:
   String _deviceId;
   String _deviceUser;
   String _devicePassword;
+  int _timeOffset;
 
   bool _netDhcp;
   bool _netWifi;
@@ -87,6 +90,9 @@ public:
 
   String getDevicePassword() const;
   void setDevicePassword(const String &pass);
+
+  int getTimeOffset() const;
+  void setTimeOffset(const int offset);
 
   String getNetIp() const;
   void setNetIp(const String &ip);

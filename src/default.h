@@ -33,4 +33,4 @@
 #define DEFAULT_NET_SSID ""
 #define DEFAULT_NET_PASSWORD ""
 
-#define DEFAULT_NET_NTP_SERVER "pool.ntp.org"
+#define DEFAULT_TIME_OFFSET 0

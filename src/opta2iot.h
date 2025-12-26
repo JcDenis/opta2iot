@@ -14,10 +14,15 @@
  * see README.md file
  */
 
+#pragma once
+
 #include <ArduinoJson.h>
 #include <Ethernet.h>
+#include <EthernetUdp.h>
 #include <WiFi.h>
 #include <HttpClient.h>
+#include <NTPClient.h>
+#include <mbed_mktime.h>
 #include <MQTT.h>
 #include "opta_info.h"
 #include "KVStore.h"
@@ -52,6 +57,7 @@ bool infoOk = false;
 bool ledOk = false;
 bool mqttOk = false;
 bool netOk = false;
+bool ntpOk = false;
 bool serialOk = false;
 bool webOk = false;
 
@@ -104,6 +110,14 @@ String getDeviceName() {
     default: message = "Unknown"; break;
   }
   return message;
+}
+
+String getLocalTime() {
+  char buffer[32];
+  tm t;
+  _rtc_localtime(time(NULL), &t, RTC_FULL_LEAP_YEAR_SUPPORT);
+  strftime(buffer, 32, "%k:%M:%S", &t);
+  return String(buffer);
 }
 
 IPAddress getLocalIp() {
@@ -461,6 +475,17 @@ void loopSerial() {
     if (message.equals("info")) {  // print board info to terminal
       actionInfo();
     }
+    if (message.equals("time")) {  // print local time to terminal
+      print(DO, "Getting local time");
+      if (ntpOk) {
+        print(OK, "Time set to " + getLocalTime());
+      } else {
+        print(KO, "Time not updated " + getLocalTime());
+      }
+    }
+    if (message.equals("loop")) {  // print 10 times the number of loops per second to terminal
+      actionLoop();
+    }
     if (message.equals("publish")) {  // publish to mqtt device info and inputs state
       actionPublishDevice();
       actionPublishInputs();
@@ -476,18 +501,15 @@ void loopSerial() {
     }
     if (message.equals("reset")) {  // reset configuration
       actionReset();
-      actionReboot();
+      print(KO, "You should reboot device");
     }
     if (message.equals("dhcp")) {  // update configuration to toggle DHCP mode
       actionDhcp();
-      actionReboot();
+      print(KO, "You should reboot device");
     }
     if (message.equals("wifi")) {  // update configuration to toggle WIFI mode
       actionWifi();
-      actionReboot();
-    }
-    if (message.equals("loop")) {  // print 10 times the number of loops per second to terminal
-      actionLoop();
+      print(KO, "You should reboot device");
     }
   }
 }
@@ -981,6 +1003,39 @@ void loopNet() {
 }
 
 /**
+ * NTP
+ */
+
+void ntpUpdate(UDP& udp) {
+  print(DO, "Configuring local time from time server " + String(TIME_SERVER));
+
+  ledFreeze(true);
+  NTPClient timeClient(udp, TIME_SERVER, conf.getTimeOffset() * 3600, 0);
+  timeClient.begin();
+  timeClient.update();
+  const unsigned long epoch = timeClient.getEpochTime();
+  set_time(epoch);
+  print(OK, "Time set to " + timeClient.getFormattedTime());
+  ledFreeze(false);
+}
+
+void loopNtp() {
+  if (!netOk || ntpOk) {
+    return;
+  }
+
+  if (netMode == NET_ETH) {
+    EthernetUDP ethernetUdpClient;
+    ntpUpdate(ethernetUdpClient);
+  } else {
+    WiFiUDP wifiUdpClient;
+    ntpUpdate(wifiUdpClient);
+  }
+
+  ntpOk = true;
+}
+
+/**
  * Web Server
  */
 
@@ -1039,6 +1094,8 @@ void webSendData(Client*& client) {
   doc["deviceId"] = conf.getDeviceId();
   doc["version"] = SKETCH_VERSION;
   doc["mqttConnected"] = mqttOk;
+  doc["time"] = getLocalTime();
+  doc["gmt"] = conf.getTimeOffset();
 
   // Digital Inputs
   JsonObject inputsObject = doc.createNestedObject("inputs");
@@ -1140,6 +1197,10 @@ void webReceiveConfig(Client*& client) {
     if (conf.getDevicePassword() == "") {  // get old device password if none set
       print(OK, "Get previous device password");
       conf.setDevicePassword(oldConf.getDevicePassword());
+    }
+    int offset = conf.getTimeOffset();
+    if (offset > 24 || offset < -24) { // time offset must be in this day
+      conf.setTimeOffset(0);
     }
     if (conf.getNetPassword() == "" && conf.getNetSsid() != "") {  // get old wifi password if none set
       print(OK, "Get previous Wifi password");
@@ -1364,16 +1425,14 @@ void mqttConnect() {
 }
 
 void loopMqtt() {
-  static unsigned int mqttSetup = 0;
+  static bool mqttSetup = false;
   static unsigned long mqttLastPublish = 0;
 
-  if (!netOk) {
+  if (!netOk || netMode == NET_AP) {
     return;
   }
 
-  if (mqttSetup == 0) {
-    mqttSetup = 1;
-
+  if (!mqttSetup) {
     print(DO, "Configuring MQTT on server " + conf.getMqttIp() + ":" + String(conf.getMqttPort()));
 
     ledFreeze(true);
@@ -1385,6 +1444,7 @@ void loopMqtt() {
     ledFreeze(false);
 
     mqttClient.onMessage(mqttReceive);
+    mqttSetup = true;
   }
 
   mqttConnect();
@@ -1393,13 +1453,10 @@ void loopMqtt() {
     return;
   }
 
-  if (!digitalRead(BTN_USER)) {  // publish to MQTT on button USER push
-    actionPublishDevice();
-    actionPublishInputs();
-    delay(500);
-  }
-
-  if (mqttOk && conf.getMqttInterval() > 0 && loopTime - mqttLastPublish > (unsigned int)(conf.getMqttInterval() * 1000)) {
+  if (!digitalRead(BTN_USER) || (conf.getMqttInterval() > 0 && loopTime - mqttLastPublish > (unsigned int)(conf.getMqttInterval() * 1000))) {
+    if (!digitalRead(BTN_USER)) { 
+      delay(500);
+    }
     mqttLastPublish = loopTime;
 
     actionPublishDevice();
@@ -1432,6 +1489,7 @@ void loop() {
   loopSerial();
   loopConfig();
   loopNet();
+  loopNtp();
   loopWeb();
   loopMqtt();
 }

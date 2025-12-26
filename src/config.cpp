@@ -49,6 +49,14 @@ void config::setDevicePassword(const String &pass) {
   _devicePassword = pass;
 }
 
+int config::getTimeOffset() const {
+  return _timeOffset;
+}
+
+void config::setTimeOffset(const int offset) {
+  _timeOffset = offset;
+}
+
 String config::getNetIp() const {
   return _netIp;
 }
@@ -215,6 +223,7 @@ int config::loadFromJson(const char *buffer, size_t length) {
   if (!doc.containsKey("deviceId")
       || !doc.containsKey("deviceUser")
       || !doc.containsKey("devicePassword")
+      || !doc.containsKey("timeOffset")
       || !doc.containsKey("netIp")
       || !doc.containsKey("netDhcp")
       || !doc.containsKey("netWifi")
@@ -234,6 +243,7 @@ int config::loadFromJson(const char *buffer, size_t length) {
   _deviceId = doc["deviceId"].as<String>();
   _deviceUser = doc["deviceUser"].as<String>();
   _devicePassword = doc["devicePassword"].as<String>();
+  _timeOffset = doc["timeOffset"].as<int>();
   _netIp = doc["netIp"].as<String>();
   _netDhcp = doc["netDhcp"].as<bool>();
   _netWifi = doc["netWifi"].as<bool>();
@@ -261,6 +271,7 @@ String config::toJson(const bool nopass) const {
   doc["deviceId"] = _deviceId;
   doc["deviceUser"] = _deviceUser;
   doc["devicePassword"] = nopass ? "" : _devicePassword;
+  doc["timeOffset"] = _timeOffset;
   doc["netIp"] = _netIp;
   doc["netDhcp"] = _netDhcp;
   doc["netWifi"] = _netWifi;
@@ -288,6 +299,7 @@ void config::loadDefaults() {
   _deviceId = DEFAULT_DEVICE_ID;
   _deviceUser = DEFAULT_DEVICE_USER;
   _devicePassword = DEFAULT_DEVICE_PASSWORD;
+  _timeOffset = DEFAULT_TIME_OFFSET;
 
   _netIp = DEFAULT_NET_IP;
   _netDhcp = DEFAULT_NET_DHCP;

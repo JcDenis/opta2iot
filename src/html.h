@@ -30,6 +30,7 @@ const char htmlHome[] PROGMEM = R"rawliteral(
 <body>
   <div class="box">
     <h1 id="title">Arduino Opta</h1>
+    <ul><li>Last refresh at <span id="dateTime" class="datetime"></li></ul>
   </div>
 
   <div class="box">
@@ -89,6 +90,7 @@ const char htmlHome[] PROGMEM = R"rawliteral(
         document.title = "Opta " + data.deviceId;
         document.getElementById('title').innerText = "Opta " + data.deviceId;
         document.getElementById('version').innerText = "opta2iot v" + data.version;
+        document.getElementById('dateTime').innerText = data.time + " GMT " + (data.gmt > 0 ? "+" : "") + data.gmt;
 
         // Update MQTT connection status
         document.getElementById('mqttStatus').className = data.mqttConnected ? 'led high' : 'led low';
@@ -182,6 +184,10 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
       <label for="devicePassword">Password:</label>
       <input type="password" id="devicePassword" name="devicePassword">
       <p class="note">Fill in this field only to change current password.</p>
+
+      <label for="timeOffset">Time offset in hours:</label>
+      <input type="number" id="timeOffset" name="timeOffset" required>
+      <p class="note">This is the time offset from GMT in hour.</p>
     </div>
     
     <div class="box">
@@ -284,6 +290,7 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
         document.getElementById('deviceId').value = data.deviceId;
         document.getElementById('deviceUser').value = data.deviceUser;
         document.getElementById('devicePassword').value = data.devicePassword;
+        document.getElementById('timeOffset').value = data.timeOffset;
 
         document.getElementById('netIp').value = data.netIp;
         if (data.netDhcp !== undefined) {
@@ -366,6 +373,7 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
         deviceId: formData.get('deviceId'),
         deviceUser: formData.get('deviceUser'),
         devicePassword: formData.get('devicePassword'),
+        timeOffset: parseInt(formData.get('timeOffset'), 10),
         netIp: formData.get('netIp'),
         netDhcp: false,
         netWifi: false,
