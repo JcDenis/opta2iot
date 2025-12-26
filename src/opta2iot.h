@@ -51,6 +51,7 @@ unsigned long ntpTime = 0;
 unsigned int netMode = NET_NONE;
 unsigned int optaMode = OPTA_NONE;
 
+bool buttonOk = false;
 bool configOk = false;
 bool formatOk = false;
 bool infoOk = false;
@@ -667,12 +668,65 @@ void setupFormat() {
 }
 
 /**
+ * Button
+ */
+
+void setupButton() {
+  pinMode(BTN_USER, INPUT);  // init USER button
+  buttonOk = true;
+}
+
+void loopButton() {
+  static unsigned long btnPressStart = 0;
+  static unsigned long btnPressLength  = 0;
+
+  if (!digitalRead(BTN_USER)) {
+    if (btnPressStart == 0) {
+      btnPressStart = loopTime;
+    }
+    btnPressLength = loopTime - btnPressStart;
+  } else if (btnPressStart > 0) {
+      btnPressStart = 0;
+  }
+
+  // wait button release
+  if (btnPressStart > 0 || btnPressLength == 0) {
+    return;
+  }
+
+  print(OK, "Button pressed " + String(btnPressLength) + " milliseconds");
+
+  // if button press > 5s: reset config and reboot
+  if (btnPressLength > 5000) {
+    actionReset();
+    actionReboot();
+  }
+
+  // if no network and button push more than 1s: switch WIFI mode in config and reboot
+  if (!netOk && btnPressLength > 1000 && btnPressLength < 3000) {
+    actionWifi();
+    actionReboot();
+  }
+
+  // if no network and button push less than 1s: switch DHCP mode in config and reboot
+  if (!netOk && btnPressLength < 1000) {
+    actionDhcp();
+    actionReboot();
+  }
+  // if network ok, mqtt connected, and button push less than 1s : publish MQTT info
+  if (netOk && mqttOk && btnPressLength < 1000) {
+    actionPublishDevice();
+    actionPublishInputs();
+  }
+
+  btnPressLength = 0;
+}
+
+/**
  * Config
  */
 
 void setupConfig() {
-  pinMode(BTN_USER, INPUT);  // init USER button
-
   // read flash
   print(OK, "Reading configuration from flash");
   char readBuffer[1024];
@@ -686,34 +740,25 @@ void setupConfig() {
     perform = true;
   }
 
-  // wait user
-  if (!perform) {
+  // wait user button press
+  if (!perform && buttonOk) {
 
     ledFreeze(true);
     print(IN, "Hold the user button to fully reset device. Waiting ");
-    for (int i = CONFIG_RESET_DELAY; i > 0; i--) {
-      Serial.print(i);
-      delay(500);
-      Serial.print(".");
-      delay(500);
-    }
-    Serial.println();
-
-    if (!digitalRead(BTN_USER)) {
-      print(IN, "Hold the user button to confirm fully reset device. Waiting ");
-      for (int i = CONFIG_RESET_DELAY; i > 0; i--) {
-        Serial.print(i);
-        delay(500);
-        Serial.print(".");
-        delay(500);
+    unsigned long start = 0;
+    for (int i = CONFIG_RESET_DELAY; i >= 0; i--) {
+      start = millis();
+      while(!digitalRead(BTN_USER)) {
+        if (start + 3000 < millis()) {
+          print(OK, "Reset from button");
+          perform = true;
+          force = true;
+          i = 0;
+          break;
+        }
       }
-      Serial.println();
-
-      if (!digitalRead(BTN_USER)) {
-        print(OK, "Reset from button");
-        perform = true;
-        force = true;
-      }
+      delay(1000);
+      print(OK, String(i));
     }
     ledFreeze(false);
   }
@@ -746,12 +791,6 @@ void setupConfig() {
 void loopConfig() {
   static unsigned int pinsLastPoll = 0;
   static String prev_di_mask[NUM_INPUTS];
-
-  // if no ethernet cable plugged and User button push: switch DHCP mode in config and reboot
-  if (!netOk && !digitalRead(BTN_USER)) {
-    actionDhcp();
-    actionReboot();
-  }
 
   // poll input
   if (loopTime - pinsLastPoll > PINS_POLL_DELAY) {  // Inputs loop delay
@@ -1453,10 +1492,7 @@ void loopMqtt() {
     return;
   }
 
-  if (!digitalRead(BTN_USER) || (conf.getMqttInterval() > 0 && loopTime - mqttLastPublish > (unsigned int)(conf.getMqttInterval() * 1000))) {
-    if (!digitalRead(BTN_USER)) { 
-      delay(500);
-    }
+  if ((conf.getMqttInterval() > 0 && loopTime - mqttLastPublish > (unsigned int)(conf.getMqttInterval() * 1000))) {
     mqttLastPublish = loopTime;
 
     actionPublishDevice();
@@ -1475,6 +1511,7 @@ void setup() {
   setupSerial();
   setupInfo();
   setupLed();
+  setupButton();
   setupFormat();
   setupConfig();
   setupNet();
@@ -1485,6 +1522,7 @@ void loop() {
   loopTime = millis();
 
   loopLed();
+  loopButton();
   loopAction();
   loopSerial();
   loopConfig();

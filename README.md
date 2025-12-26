@@ -35,7 +35,6 @@ The goal of this sketch is to implement an easy to use MQTT gateway for industri
 * Fix freeze on web authentication
 * Add support for RS485
 * Add support for Modbus
-* Add support for device extensions
 
 
 ## USAGE
@@ -47,7 +46,7 @@ If Wifi SSID is not configured and Wifi is set as prefered network, the Wifi goe
 Default IP is `192.168.1.231`, default SSID is `opta99999` and password is `admin`.
 
 **Wifi STA MODE**  
-If Wifi SSID and password are configured and Wifi is set as prefred network, the wifi goes into STA mode.
+If Wifi SSID and password are configured and Wifi is set as prefered network, the wifi goes into STA mode.
 
 **Ethernet mode**  
 If Ethernet is set as prefered network, wifi is disbaled.
@@ -62,15 +61,18 @@ This sketch display activity on serial port and also support several commands.
 These commands are not case sensitive.
 
 * `CONFIG ` : Get user config
-* `DHCP`    : Switch ethernet DHCP mode (and reboot)
+* `DHCP`    : Switch ethernet DHCP mode
 * `FORMAT`  : Create/format partitions (and reboot)
 * `INFO`    : Get board informations
 * `IP`      : Get ethernet IP
 * `LOOP`    : Get loops per second
 * `PUBLISH` : Publish to MQTT device and inputs state
 * `REBOOT`  : Reboot device
-* `RESET`   : Reset config to default (and reboot)
-* `WIFI`    : Switch Wifi/Ethernet mode (and reboot)
+* `RESET`   : Reset config to default
+* `TIME`    : Get local time
+* `WIFI`    : Switch Wifi/Ethernet mode
+
+You should do a reboot after `DHCP`, `WIFI`, `RESET` actions.
 
 ### MQTT
 
@@ -136,10 +138,16 @@ Wifi device:
 
 ### Button
 
-* During boot, on fix green and red LEDS, user can reset device to default by pressing button
-* With Network and MQTT connection, user can force publishing input state by pressing button
-* With network cable disconnected, user can change DHCP mode by pressing button.
+During boot:
+* On fix green and red LEDS, user can reset device to default by pressing button more than 3 seconds
 
+After boot:
+* User can reset device to default by pressing button more than 5 seconds
+* Without network, user can switch WIFI mode by pressing button around 2 seconds
+* Without network, user can change DHCP mode by pressing button less than 1 second
+* With network and MQTT connection, user can force publishing input state to MQTT by pressing button less than 1 second
+
+Note that actions take effect on button release.
 
 ## ARDUINO IDE
 
