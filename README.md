@@ -35,6 +35,7 @@ The goal of this sketch is to implement an easy to use MQTT gateway for industri
 * Fix freeze on web authentication
 * Add support for RS485
 * Add support for Modbus
+* Add support for device extensions
 
 
 ## USAGE
