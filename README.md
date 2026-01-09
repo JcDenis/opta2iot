@@ -1,8 +1,9 @@
 # Arduino Opta Industrial IoT gateway
 
-[![Release](https://img.shields.io/github/v/release/jcdenis/opta2iot?color=lightblue)](https://github.com/JcDenis/opta2iot/releases)
-![Date](https://img.shields.io/github/release-date/jcdenis/opta2iot?color=red)
-[![License](https://img.shields.io/github/license/jcdenis/opta2iot?color=white)](https://github.com/JcDenis/opta2iot/blob/master/LICENSE)
+[![Release](https://img.shields.io/github/v/release/JcDenis/opta2iot?color=lightblue)](https://github.com/JcDenis/opta2iot/releases)
+[![Issues](https://img.shields.io/github/issues/JcDenis/opta2iot)](https://github.com/JcDenis/opta2iot/issues)
+[![Requests](https://img.shields.io/github/issues-pr/JcDenis/opta2iot)](https://github.com/JcDenis/opta2iot/pulls)
+[![License](https://img.shields.io/github/license/JcDenis/opta2iot?color=white)](https://github.com/JcDenis/opta2iot/blob/master/LICENSE)
 
 
 ## About
@@ -30,11 +31,10 @@ The goal of this sketch is to implement an easy to use MQTT gateway for industri
 
 ## To do
 
-* OTA support
-* Enhance timeout/freeze on all client or server connections
-* Fix freeze on web authentication
-* Add support for RS485
-* Add support for Modbus
+* Support for OTA update
+* Support for RS485
+* Support for Modbus
+* Support for device expansions boards
 
 
 ## USAGE
@@ -42,11 +42,11 @@ The goal of this sketch is to implement an easy to use MQTT gateway for industri
 ### Network
 
 **Wifi AP MODE**  
-If Wifi SSID is not configured and Wifi is set as prefered network, the Wifi goes into AP mode.  
+If Wifi SSID is not configured and Wifi is set as prefered network, the Wifi goes into Access Point mode.  
 Default IP is `192.168.1.231`, default SSID is `opta99999` and password is `admin`.
 
 **Wifi STA MODE**  
-If Wifi SSID and password are configured and Wifi is set as prefered network, the wifi goes into STA mode.
+If Wifi SSID and password are configured and Wifi is set as prefered network, the wifi goes into Standard mode.
 
 **Ethernet mode**  
 If Ethernet is set as prefered network, wifi is disbaled.
@@ -55,24 +55,28 @@ If Ethernet is set as prefered network, wifi is disbaled.
 If DHCP mode is enabled in configuration, connection is tried to be established with dynamic IP, 
 else configured static IP address is used.
 
+Network settings are configured in setup process and can not be changed without a device reboot.
+
 ### Serial
 
 This sketch display activity on serial port and also support several commands.  
 These commands are not case sensitive.
 
-* `CONFIG ` : Get user config
-* `DHCP`    : Switch ethernet DHCP mode
-* `FORMAT`  : Create/format partitions (and reboot)
-* `INFO`    : Get board informations
-* `IP`      : Get ethernet IP
-* `LOOP`    : Get loops per second
-* `PUBLISH` : Publish to MQTT device and inputs state
-* `REBOOT`  : Reboot device
-* `RESET`   : Reset config to default
-* `TIME`    : Get local time
-* `WIFI`    : Switch Wifi/Ethernet mode
+* `CONFIG ` 	: Send to serial monitor the user config
+* `DHCP`    	: Switch ethernet DHCP mode in configuration
+* `FORMAT`  	: Create/format partitions (and reboot)
+* `INFO`    	: Send to serial monitor the board informations
+* `IP`      	: Send to serial monitor the device IP
+* `LOOP`    	: Send to serial monitor the number of loops per second
+* `PUBLISH` 	: Publish to MQTT device and inputs state
+* `REBOOT`  	: Reboot device
+* `RESET`       : Reset config to default
+* `TIME`        : Send to monitor the local time
+* `UPDATE TIME` : Query NTP server to update local time
+* `VERSION`		: Send to serial monitor the library version
+* `WIFI`    	: Switch Wifi/Ethernet mode in configuration
 
-You should do a reboot after `DHCP`, `WIFI`, `RESET` actions.
+You should do a `REBOOT` after `DHCP`, `WIFI`, `RESET` actions.
 
 ### MQTT
 
@@ -85,7 +89,7 @@ Publishing input state and device information topics:
 * `<base_topic>/<device_id>/Ix/type` for input type (0 = analog, 1 = digital, 2 = pulse)
 * `<base_topic>/<device_id>/device/type` for the device type (Opta Lite...)
 * `<base_topic>/<device_id>/device/ip` for the device current IP
-* `<base_topic>/<device_id>/device/version` for tehe device installed sketch version
+* `<base_topic>/<device_id>/device/version` for the device installed sketch version
 
 Command output state and device information topics:
 * `<base_topic>/<device_id>/Ox` for output value with `0` = OFF, `1` = ON
@@ -120,11 +124,11 @@ Available web server entrypoints are:
 ### LED
 
 During boot:
-* Fix Green and Red : Waiting for user to press button to fully reset device
+* Fast blink Red : Waiting for user to press button to fully reset device
 * Fast blink Green to Red : Device is going to reboot
 
 After boot:
-* Fix Green and fix Red with no blue : Connecting networks (this freeze device)
+* Fix Green and Red with no blue : Connecting networks (this freeze device)
 * Fast blink Green to Red : Device is going to reboot
 * Fast short blink Green and Red : heartbeat
 * Slow blink Red : No network connection
@@ -139,7 +143,7 @@ Wifi device:
 ### Button
 
 During boot:
-* On fix green and red LEDS, user can reset device to default by pressing button more than 3 seconds
+* On fast blink red LEDS, user can reset device to default by pressing button more than 5 seconds
 
 After boot:
 * User can reset device to default by pressing button more than 5 seconds
@@ -147,7 +151,7 @@ After boot:
 * Without network, user can change DHCP mode by pressing button less than 1 second
 * With network and MQTT connection, user can force publishing input state to MQTT by pressing button less than 1 second
 
-Note that actions take effect on button release.
+Note that actions take effect on button release. WIFI and DHCP actions reboot device.
 
 ## ARDUINO IDE
 
@@ -170,6 +174,18 @@ For Arduino Finder Opta on its M7 core.
 * Tools > Security > None
 * Tools > Flash split > 2Mb M7
 * Tools > Target core > Main Core
+
+### Install
+
+* Copy folder `opta2iot` to your Arduino IDE `libraries` folder, 
+* Restart your Arduino IDE
+* Select your Opta board and port
+* In menu go to: _file > Examples > Examples from Custom Libraries > Opta Industrial IoT_ and select an example.
+* Upload sketch to your Opta board. Enjoy.
+
+To use opta2iot in your sketch, follow steps above, add this line at the begining of your sketch:
+
+`#include "opta2iot.h"`
 
 
 ## CONTRIBUTORS

@@ -1,5 +1,4 @@
-/*
- * opta2iot
+/* opta2iot
  *
  * Arduino Opta Industrial IoT gateway
  *
@@ -14,10 +13,69 @@
  * see README.md file
  */
 
-#pragma once
+#ifndef OPTA2IOT_HTML_H
+#define OPTA2IOT_HTML_H
 
 namespace opta2iot {
 
+/**
+ * HTML contents for the authentication requirement web server page.
+ */
+const char htmlAuth[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Arduino Opta</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="box">
+    <h1 id="title">Arduino Opta</h1>
+    <p>401 Unauthorized.</p>
+  </div>
+  <div class="box">
+    <div class="footer">
+      <p><a class="github" href="https://github.com/jcdenis/opta2iot">opta2iot</a></p>
+    </div>
+  </div>
+</body>
+
+</html>
+    )rawliteral";
+
+
+/**
+ * HTML contents for the 404 Not Found web server page.
+ */
+const char htmlError[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Arduino Opta</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="box">
+    <h1 id="title">Arduino Opta</h1>
+    <p>404 Not Found.</p>
+  </div>
+  <div class="box">
+    <div class="footer">
+      <p><a class="github" href="https://github.com/jcdenis/opta2iot">opta2iot</a></p>
+    </div>
+  </div>
+</body>
+
+</html>
+    )rawliteral";
+
+/**
+ * HTML contents for the device state (home) web server page.
+ */
 const char htmlHome[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -61,7 +119,7 @@ const char htmlHome[] PROGMEM = R"rawliteral(
   <div class="box">
     <div class="footer">
       <p><a href="/device" class="button button-back">Configure device</a></p>
-      <p id="version">--</p>
+      <p><a class="github" href="https://github.com/jcdenis/opta2iot">opta2iot</a> - <span id="version">--</span></p>
     </div>
   </div>
   
@@ -149,7 +207,7 @@ const char htmlHome[] PROGMEM = R"rawliteral(
       }
     }
 
-    setInterval(updateStatus, 1000);
+    setInterval(updateStatus, 2000);
     window.onload = updateStatus;
   </script>
 </body>
@@ -157,6 +215,9 @@ const char htmlHome[] PROGMEM = R"rawliteral(
 </html>
     )rawliteral";
 
+/**
+ * HTML contents for the device configuration web server page.
+ */
 const char htmlDevice[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -270,7 +331,7 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
       <div class="footer">
         <p><button type="submit" class="button">Set Configuration</button></p>
         <p><a href="/" class="button button-back">Back to Status</a></p>
-        <p id="version">--</p>
+        <p><a class="github" href="https://github.com/jcdenis/opta2iot">opta2iot</a> - <span id="version">--</span></p>
       </div>
     </div>
   </form>
@@ -285,7 +346,7 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
 
         document.title = "Opta " + data.deviceId;
         document.getElementById('title').innerText = "Opta " + data.deviceId;
-        document.getElementById('version').innerText = "opta2iot v" + data.version;
+        document.getElementById('version').innerText = "v" + data.version;
 
         document.getElementById('deviceId').value = data.deviceId;
         document.getElementById('deviceUser').value = data.deviceUser;
@@ -428,6 +489,9 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
 </html>
     )rawliteral";
 
+/**
+ * CSS contents for all web server pages.
+ */
 const char htmlStyle[] PROGMEM = R"rawliteral(
 body {
   font-family: Arial, sans-serif;
@@ -605,12 +669,22 @@ ul li span {
 .low {
   background-color: #f44336;
 }
+
+.github {
+  color: #0094ce;
+  text-decoration: none;
+
+}
     )rawliteral";
 }
 
-// Arduino Findernet logo
-// - Online Tool to create Favicons: https://www.favicon.cc/
-// - Online HEX Editor/Converter: http://tomeko.net/online_tools/file_to_hex.php
+/**
+ * Icon representation for all web server pages.
+ *
+ * This is the Arduino Findernet logo
+ * - Online Tool to create Favicons: https://www.favicon.cc/
+ * - Online HEX Editor/Converter: http://tomeko.net/online_tools/file_to_hex.php
+ */
 const char htmlFavicon[] PROGMEM = {
   0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
   0x00, 0x00, 0x00, 0x60, 0x00, 0x00, 0x00, 0x60, 0x08, 0x06, 0x00, 0x00, 0x00, 0xE2, 0x98, 0x77,
@@ -1015,3 +1089,5 @@ const char htmlFavicon[] PROGMEM = {
   0x63, 0x6F, 0x2E, 0x70, 0x6E, 0x67, 0x3D, 0xBB, 0x4F, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45,
   0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
 };
+
+#endif  // #ifndef OPTA2IOT_HTML_H

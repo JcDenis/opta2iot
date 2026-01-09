@@ -1,0 +1,61 @@
+/* opta2iot
+ *
+ * Arduino Opta Industrial IoT gateway
+ *
+ * Author: Jean-Christian Paul Denis
+ * Source: https://github.com/JcDenis/opta2iot
+ *
+ * Based on "Remoto" at https://github.com/albydnc/remoto by 
+ * Author: Alberto Perro
+ * Date: 27-12-2024
+ * License: CERN-OHL-P
+ *
+ * see README.md file
+ */
+
+#ifndef OPTA2IOT_DEFINE_H
+#define OPTA2IOT_DEFINE_H
+
+/* Default values.
+ *
+ * Default values are used if configuration file doesn't exist in flash memory or if some values are erroneous.
+ * These values can be changed from serial command or web page later.
+ */
+
+// Device
+#define OPTA2IOT_DEVICE_ID "99999"
+#define OPTA2IOT_DEVICE_USER "admin"
+#define OPTA2IOT_DEVICE_PASSWORD "admin"
+
+// Network
+#define OPTA2IOT_NET_DHCP false
+#define OPTA2IOT_NET_IP "192.168.1.231"
+#define OPTA2IOT_NET_WIFI true
+#define OPTA2IOT_NET_SSID ""
+#define OPTA2IOT_NET_PASSWORD ""
+
+// MQTT
+#define OPTA2IOT_MQTT_IP "192.168.1.100"
+#define OPTA2IOT_MQTT_PORT 1883
+#define OPTA2IOT_MQTT_USER "mqtt_user"
+#define OPTA2IOT_MQTT_PASSWORD "mqtt_password"
+#define OPTA2IOT_MQTT_BASE "/opta/"
+#define OPTA2IOT_MQTT_INTERVAL 0
+
+// Time
+#define OPTA2IOT_TIME_OFFSET 0
+#define OPTA2IOT_TIME_SERVER "pool.ntp.org"
+
+// Serial
+#define OPTA2IOT_SERIAL_VERBOSE true;
+
+// IO
+#define OPTA2IOT_IO_RESOLUTION 16
+#define OPTA2IOT_MAX_INPUTS 24   // Maximum board&expension inputs, technical requirement
+#define OPTA2IOT_MAX_OUTPUTS 24  // Maximum board&expension outputs, technical requirement
+
+// Delay
+#define OPTA2IOT_DELAY_POOL 50   // In milliseconds, inputs pool loop delay
+#define OPTA2IOT_DELAY_RETRY 45  // In seconds, network client/server connection retry delay
+
+#endif  // #ifndef OPTA2IOT_DEFINE_H
