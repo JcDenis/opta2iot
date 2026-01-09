@@ -1354,7 +1354,8 @@ bool Opta::timeSetup() {
 }
 
 bool Opta::timeLoop(bool startBenchmark) {
-  if (!_timeUpdated && (_now - 3600000) > _timeLastUpdate) {
+  // If time update failed during setup, try every hour until success
+  if (!_timeUpdated && ((_now - 3600000) < _timeLastUpdate)) {
     _timeLastUpdate = _now;
     timeUpdate();
   }
