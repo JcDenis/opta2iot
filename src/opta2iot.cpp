@@ -16,6 +16,7 @@
 // Required librairies
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <ArduinoMqttClient.h>
 #include "KVStore.h"
 #include "kvstore_global_api.h"
 #include <Ethernet.h>
@@ -528,7 +529,7 @@ bool Opta::flashWiFiFirmwareAndCertificates() {
       chunk_size = cacert_pem_len - byte_count;
     int ret = fwrite(&cacert_pem[byte_count], chunk_size, 1, fp);
     if (ret != 1) {
-      Serial.println("Error writing certificates");
+      serialWarn(F("Error writing certificates"));
 
       return false;
     }
@@ -1109,8 +1110,8 @@ bool Opta::ioLoop() {
             String inTopic = "I" + String(i + 1);
             String rootTopic = _configMqttBase + _configDeviceId + "/";
 
-            mqttClient.publish(String(rootTopic + inTopic + "/val").c_str(), String(inputsCurrent[i]).c_str());
-            mqttClient.publish(String(rootTopic + inTopic + "/type").c_str(), String(_configInputs[i]).c_str());
+            mqttPublish(String(rootTopic + inTopic + "/val").c_str(), String(inputsCurrent[i]).c_str());
+            mqttPublish(String(rootTopic + inTopic + "/type").c_str(), String(_configInputs[i]).c_str());
 
             serialInfo(String("[" + inTopic + "] " + _ioPreviousState[i] + " => " + inputsCurrent[i]).c_str());
           }
@@ -1440,17 +1441,14 @@ bool Opta::mqttSetup() {
 
   ledSetFreeze(true);
   if (_networkSelected == NetworkType::Rj45) {
-    mqttClient.begin(networkParseIp(_configMqttIp), _configMqttPort, mqttEthernetClient);  // if failed this may take a while (no timeout)
+    MqttClient tempMqttClient(mqttEthernetClient);
+    mqttClient = tempMqttClient;
   } else {
-    mqttClient.begin(networkParseIp(_configMqttIp), _configMqttPort, mqttWifiClient);  // if failed this may take a while (no timeout)
+    MqttClient tempMqttClient(mqttWifiClient);
+    mqttClient = tempMqttClient;
   }
   ledSetFreeze(false);
-  mqttClient.onMessage((MQTTClientCallbackSimple)[](String &topic, String &payload) {
-    // MQTT.onMessage() requires a static callback so we create a static insance of Opta
-    if (instance) {
-      instance->mqttReceive(topic, payload);
-    }
-  });
+
   mqttConnect();
 
   return true;
@@ -1458,8 +1456,18 @@ bool Opta::mqttSetup() {
 
 bool Opta::mqttLoop() {
   mqttConnect();
-  if (_mqttConnected) {
-    mqttClient.loop();
+  if (_mqttConnected && mqttClient.parseMessage()) {
+    String mqttTopic = mqttClient.messageTopic();
+    char mqttBuffer[20]; // limit received message size
+    int mqttLength = 0;
+    while (mqttClient.available()) {
+      mqttBuffer[mqttLength] = (char)mqttClient.read();
+      if (mqttLength < (int)sizeof(mqttBuffer) - 1) {
+        mqttLength++;
+      }
+    }
+    String mqttString = String(mqttBuffer);
+    mqttReceive(mqttTopic, mqttString);
   }
 
   return true;
@@ -1487,18 +1495,10 @@ void Opta::mqttConnect() {
   _mqttLastRetry = millis();
   serialLine(F("Connecting to MQTT broker"));
 
-  String clientIdStr = _configDeviceId;
-  String usernameStr = _configMqttUser;
-  String passwordStr = _configMqttPassword;
-  char clientId[32];
-  char username[32];
-  char password[32];
-  clientIdStr.toCharArray(clientId, sizeof(clientId));
-  usernameStr.toCharArray(username, sizeof(username));
-  passwordStr.toCharArray(password, sizeof(password));
-
   ledSetFreeze(true);
-  if (!mqttClient.connect(clientId, username, password, false)) {
+  mqttClient.setId(_configDeviceId);
+  mqttClient.setUsernamePassword(_configMqttUser, _configMqttPassword);
+  if (!mqttClient.connect(_configMqttIp.c_str(), _configMqttPort)) {
     serialWarn(F("Failed to connect to MQTT broker"));
     ledSetFreeze(false);
     return;
@@ -1519,6 +1519,28 @@ void Opta::mqttConnect() {
   }
 
   mqttPublishDevice();
+}
+
+bool Opta::mqttSubscribe(String topic) {
+  if(_mqttConnected) {
+    mqttClient.subscribe(topic);
+
+    return true;
+  }
+
+  return false;
+}
+
+bool Opta::mqttPublish(String topic, String message) {
+  if(_mqttConnected) {
+    mqttClient.beginMessage(topic);
+    mqttClient.print(message);
+    mqttClient.endMessage();
+
+    return true;
+  }
+
+  return false;
 }
 
 void Opta::mqttReceive(String &topic, String &payload) {
@@ -1546,9 +1568,9 @@ void Opta::mqttPublishDevice() {
 
     String rootTopic = _configMqttBase + _configDeviceId;
 
-    mqttClient.publish(String(rootTopic + "/device/type").c_str(), String(_boardName).c_str());
-    mqttClient.publish(String(rootTopic + "/device/ip").c_str(), networkLocalIp().toString());
-    mqttClient.publish(String(rootTopic + "/device/revision").c_str(), String(Revision).c_str());
+    mqttPublish(String(rootTopic + "/device/type").c_str(), String(_boardName).c_str());
+    mqttPublish(String(rootTopic + "/device/ip").c_str(), networkLocalIp().toString());
+    mqttPublish(String(rootTopic + "/device/revision").c_str(), String(Revision).c_str());
 
     /*
     for (size_t i = 0; i < boardGetOutputsNum(); i++) {
@@ -1570,11 +1592,11 @@ void Opta::mqttPublishInputs() {
         float value = analogRead(BoardInputs[i]) * (3.249 / ((1 << IoResolution) - 1)) / 0.3034;
         char buffer[10];
         snprintf(buffer, sizeof(buffer), "%0.2f", value);
-        mqttClient.publish(String(rootTopic + inTopic + "val").c_str(), buffer);
-        mqttClient.publish(String(rootTopic + inTopic + "type").c_str(), String(_configInputs[i]).c_str());
+        mqttPublish(String(rootTopic + inTopic + "val").c_str(), buffer);
+        mqttPublish(String(rootTopic + inTopic + "type").c_str(), String(_configInputs[i]).c_str());
       } else {
-        mqttClient.publish(String(rootTopic + inTopic + "val").c_str(), String(digitalRead(BoardInputs[i])).c_str());
-        mqttClient.publish(String(rootTopic + inTopic + "type").c_str(), String(_configInputs[i]).c_str());
+        mqttPublish(String(rootTopic + inTopic + "val").c_str(), String(digitalRead(BoardInputs[i])).c_str());
+        mqttPublish(String(rootTopic + inTopic + "type").c_str(), String(_configInputs[i]).c_str());
       }
     }
   }

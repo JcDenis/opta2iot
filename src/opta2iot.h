@@ -19,7 +19,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <Ethernet.h>
-#include <MQTT.h>
+#include <ArduinoMqttClient.h>
 #include "BlockDevice.h"
 #include "define.h"
 
@@ -134,9 +134,9 @@ private:
 
   uint32_t _mqttLastRetry = 0;
   bool _mqttConnected = false;
-  MQTTClient mqttClient;
   EthernetClient mqttEthernetClient;
   WiFiClient mqttWifiClient;
+  MqttClient mqttClient = nullptr;
   void mqttConnect();
   void mqttReceive(String &topic, String &payload);
 
@@ -328,6 +328,8 @@ public:
   bool mqttSetup();
   bool mqttLoop();
   bool mqttIsConnected();
+  bool mqttSubscribe(String topic);
+  bool mqttPublish(String topic, String message);
   void mqttPublishDevice();
   void mqttPublishInputs();
 

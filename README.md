@@ -159,13 +159,17 @@ For Arduino Finder Opta on its M7 core.
 
 ### Boards manager
 
+From Arduino IDE menu: _Tools > Boards > Boards Manager_, you must install: 
+
 * `Arduino Mbed OS Opta Boards` by Arduino
 
 ### Library manager
 
+From Arduino IDE menu: _Tools > Manage libraries_, you must install: 
+
 * `ArduinoHttpClient` by Arduino at https://github.com/arduino-libraries/ArduinoHttpClient
+* `ArduinoMqttClient` by Arduino at https://github.com/arduino-libraries/ArduinoMqttClient
 * `ArduinoJson` by Benoit Blanchon at https://github.com/bblanchon/ArduinoJson.git
-* `MQTT` by Joel Gaehwiler at https://github.com/256dpi/arduino-mqtt
 * `base64` by Densaugeo at https://github.com/Densaugeo/base64_arduino
 
 ### Settings
