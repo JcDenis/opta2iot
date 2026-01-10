@@ -1456,18 +1456,18 @@ bool Opta::mqttSetup() {
 
 bool Opta::mqttLoop() {
   mqttConnect();
-  if (_mqttConnected && mqttClient.parseMessage()) {
-    String mqttTopic = mqttClient.messageTopic();
-    char mqttBuffer[20]; // limit received message size
-    int mqttLength = 0;
-    while (mqttClient.available()) {
-      mqttBuffer[mqttLength] = (char)mqttClient.read();
-      if (mqttLength < (int)sizeof(mqttBuffer) - 1) {
-        mqttLength++;
+  if (_mqttConnected) {
+    int rspSize = mqttClient.parseMessage();
+    if (rspSize) {
+      String rspTopic = mqttClient.messageTopic();
+      String rspPayload = "";
+
+      for (size_t index = 0; index < rspSize; index++) {
+        rspPayload += (char)mqttClient.read();
       }
+
+      mqttReceive(rspTopic, rspPayload);
     }
-    String mqttString = String(mqttBuffer);
-    mqttReceive(mqttTopic, mqttString);
   }
 
   return true;
