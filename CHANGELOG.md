@@ -1,3 +1,7 @@
+opta2iot 2026.01.10 r00
+=======================
+* Switch to __ArduinoMqttClient__ library
+
 opta2iot 2026.01.09 r00
 =======================
-* Ful rewrite to class
+* Full rewrite to class
