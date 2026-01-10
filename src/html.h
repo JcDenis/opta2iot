@@ -21,7 +21,7 @@ namespace opta2iot {
 /**
  * HTML contents for the authentication requirement web server page.
  */
-const char htmlAuth[] PROGMEM = R"rawliteral(
+const char web_auth_html[] = R"rawliteral(
 <!DOCTYPE html>
 <html>
 
@@ -49,7 +49,7 @@ const char htmlAuth[] PROGMEM = R"rawliteral(
 /**
  * HTML contents for the 404 Not Found web server page.
  */
-const char htmlError[] PROGMEM = R"rawliteral(
+const char web_error_html[] = R"rawliteral(
 <!DOCTYPE html>
 <html>
 
@@ -76,7 +76,7 @@ const char htmlError[] PROGMEM = R"rawliteral(
 /**
  * HTML contents for the device state (home) web server page.
  */
-const char htmlHome[] PROGMEM = R"rawliteral(
+const char web_home_html[] = R"rawliteral(
 <!DOCTYPE html>
 <html>
 
@@ -218,7 +218,7 @@ const char htmlHome[] PROGMEM = R"rawliteral(
 /**
  * HTML contents for the device configuration web server page.
  */
-const char htmlDevice[] PROGMEM = R"rawliteral(
+const char web_device_html[] = R"rawliteral(
 <!DOCTYPE html>
 <html>
 
@@ -492,7 +492,7 @@ const char htmlDevice[] PROGMEM = R"rawliteral(
 /**
  * CSS contents for all web server pages.
  */
-const char htmlStyle[] PROGMEM = R"rawliteral(
+const char web_style_css[] = R"rawliteral(
 body {
   font-family: Arial, sans-serif;
   font-size: 1.4em;
@@ -685,7 +685,7 @@ ul li span {
  * - Online Tool to create Favicons: https://www.favicon.cc/
  * - Online HEX Editor/Converter: http://tomeko.net/online_tools/file_to_hex.php
  */
-const char htmlFavicon[] PROGMEM = {
+const char web_favicon_hex[] = {
   0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
   0x00, 0x00, 0x00, 0x60, 0x00, 0x00, 0x00, 0x60, 0x08, 0x06, 0x00, 0x00, 0x00, 0xE2, 0x98, 0x77,
   0x38, 0x00, 0x00, 0x00, 0x04, 0x67, 0x41, 0x4D, 0x41, 0x00, 0x00, 0xB1, 0x8F, 0x0B, 0xFC, 0x61,

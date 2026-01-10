@@ -26,6 +26,7 @@
 #include <base64.hpp>
 #include "define.h"
 #include "opta2iot.h"
+#include "label.h"
 #include "html.h"
 #include "certificates.h"
 
@@ -111,7 +112,7 @@ bool Opta::endSetup() {
   //thread(); // It is better to do it in .ino file
 
   float last = floor((millis() - _now) / 1000);
-  serialLine("Setup completed in " + String((int)last) + " secondes");
+  serialLine(label_setup_end + String((int)last) + " secondes");
 
   return true;
 }
@@ -158,7 +159,7 @@ void Opta::format() {
 }
 
 void Opta::reset() {
-  serialInfo(F("Resetting device"));
+  serialInfo(label_main_reset);
 
   kv_reset("/kv/");
   delay(10);
@@ -169,7 +170,7 @@ void Opta::reset() {
 }
 
 void Opta::reboot() {
-  serialLine(F("Rebooting device"));
+  serialLine(label_main_reboot);
 
   bool on = true;
   for (int i = 0; i < 10; i++) {
@@ -183,7 +184,7 @@ void Opta::reboot() {
 }
 
 void Opta::thread() {
-  serialLine("Starting threaded loop");
+  serialLine(label_main_thread);
 
   if (!_threadStarted) {
     _threadStarted = true;
@@ -211,11 +212,7 @@ bool Opta::serialSetup() {
     }
   }
 
-  print(F("\n"));
-  print(F("+—————————————————————————————————————+\n"));
-  print(F("| Arduino Opta Industrial IoT gateway |\n"));
-  print(F("+—————————————————————————————————————+\n"));
-  print(F("\n"));
+  print(label_serial_setup);
 
   return true;
 }
@@ -227,14 +224,14 @@ bool Opta::serialLoop() {
       timeLoop(true);
     }
     if (message.equals("ip")) {
-      serialLine(F("Getting local IP address"));
+      serialLine(label_serial_cmd_ip);
       serialInfo(networkLocalIp().toString());
     }
     if (message.equals("config")) {
       serialInfo(configWriteToJson(false));
     }
     if (message.equals("time")) {
-      serialLine(F("Getting local time"));
+      serialLine(label_serial_cmd_time);
       serialInfo(timeGet());
     }
     if (message.equals("update time")) {
@@ -251,7 +248,7 @@ bool Opta::serialLoop() {
     }
     if (message.equals("reset")) {
       reset();
-      serialWarn(F("You should reboot device"));
+      serialWarn(label_serial_reboot);
     }
     if (message.equals("reboot")) {
       reboot();
@@ -259,12 +256,12 @@ bool Opta::serialLoop() {
     if (message.equals("dhcp")) {
       configSetNetworkDhcp(configGetNetworkDhcp() ? false : true);
       configWriteToFile();
-      serialWarn(F("You should reboot device"));
+      serialWarn(label_serial_reboot);
     }
     if (message.equals("wifi")) {
       configSetNetworkWifi(configGetNetworkWifi() ? false : true);
       configWriteToFile();
-      serialWarn(F("You should reboot device"));
+      serialWarn(label_serial_reboot);
     }
     if (message.equals("publish")) {
       mqttPublishDevice();
@@ -276,28 +273,26 @@ bool Opta::serialLoop() {
 }
 
 void Opta::serialLine(String str) {
-  print("* " + str + "\n");
+  print(label_serial_line + str + "\n");
 }
 void Opta::serialLine(const char *str) {
-  print("* " + String(str) + "\n");
+  serialLine(String(str));
 }
 
 void Opta::serialInfo(String str) {
   if (SerialVerbose) {
-    print(" > " + str + "\n");
+    print(label_serial_info + str + "\n");
   }
 }
 void Opta::serialInfo(const char *str) {
-  if (SerialVerbose) {
-    print(" > " + String(str) + "\n");
-  }
+  serialInfo(String(str));
 }
 
 void Opta::serialWarn(String str) {
-  print("!> " + str + "\n");
+  print(label_serial_warn + str + "\n");
 }
 void Opta::serialWarn(const char *str) {
-  print("!> " + String(str) + "\n");
+  serialWarn(String(str));
 }
 
 void Opta::serialProgress(uint32_t offset, uint32_t size, uint32_t threshold, bool reset) {
@@ -325,7 +320,7 @@ bool Opta::serialIncoming() {
       switch (c) {
         case '\n':
           _serialIncoming[index] = '\0';
-          serialLine("Receiveing serial message: " + String(_serialIncoming));
+          serialLine(label_serial_receive + String(_serialIncoming));
           index = 0;
           ended = true;
           break;
@@ -353,31 +348,31 @@ String Opta::serialReceived() {
  */
 
 bool Opta::boardSetup() {
-  serialLine(F("Configuring board"));
+  serialLine(label_board_setup);
 
   info = boardInfo();
   if (info->magic == 0xB5) {
     if (info->_board_functionalities.ethernet == 1) {
       _boardType = BoardType::Lite;
-      _boardName = "Opta Lite AFX00003 ";
+      _boardName = label_board_name_lite;
       //MacEthernet = String(info->mac_address[0], HEX) + ":" + String(info->mac_address[1], HEX) + ":" + String(info->mac_address[2], HEX) + ":" + String(info->mac_address[3], HEX) + ":" + String(info->mac_address[4], HEX) + ":" + String(info->mac_address[5], HEX);
     }
     if (info->_board_functionalities.rs485 == 1) {
       _boardType = BoardType::Rs485;
-      _boardName = "Opta RS485 AFX00001";
+      _boardName = label_board_name_rs485;
     }
     if (info->_board_functionalities.wifi == 1) {
       _boardType = BoardType::Wifi;
-      _boardName = "Opta Wifi AFX00002 ";
+      _boardName = label_board_name_wifi;
       //MacWifi = String(info->mac_address_2[0], HEX) + ":" + String(info->mac_address_2[1], HEX) + ":" + String(info->mac_address_2[2], HEX) + ":" + String(info->mac_address_2[3], HEX) + ":" + String(info->mac_address_2[4], HEX) + ":" + String(info->mac_address_2[5], HEX);
     }
   }
 
   if (_boardType == BoardType::Undefined) {
     // Ko
-    return stop(F("Failed to find board type"));
+    return stop(label_board_error);
   }
-  serialInfo("Board is " + String(_boardName));
+  serialInfo(label_board_name + String(_boardName));
 
   return true;
 }
@@ -394,11 +389,11 @@ size_t Opta::boardGetOutputsNum() {
  */
 
 bool Opta::flashSetup() {
-  serialLine(F("Configuring flash memory"));
+  serialLine(label_flash_setup);
 
   _flashRoot = mbed::BlockDevice::get_default_instance();
   if (_flashRoot->init() != mbed::BD_ERROR_OK) {
-    serialWarn(F("QSPI initialization failed"));
+    serialWarn(label_flash_init_error);
     return false;
   }
 
@@ -430,12 +425,12 @@ bool Opta::flashFormat(bool force) {
   mbed::MBRBlockDevice wifi_data(_flashRoot, 1);
   mbed::FATFileSystem wifi_data_fs("wlan");
   bool noWifi = wifi_data_fs.mount(&wifi_data) != 0;
-  serialInfo(String(noWifi ? "Missing" : "Existing") + " Wifi partition");
+  serialInfo((noWifi ? label_flash_missing : label_flash_existing) + String("Wifi"));
 
   mbed::MBRBlockDevice ota_data(_flashRoot, 2);
   mbed::FATFileSystem ota_data_fs("fs");
   bool noOta = ota_data_fs.mount(&ota_data) != 0;
-  serialInfo(String(noOta ? "Missing" : "Existing") + " OTA partition");
+  serialInfo((noOta ? label_flash_missing : label_flash_existing) + String("OTA"));
 
   mbed::MBRBlockDevice kvstore_data(_flashRoot, 3);
   // do not touch this one
@@ -443,14 +438,14 @@ bool Opta::flashFormat(bool force) {
   mbed::MBRBlockDevice user_data(_flashRoot, 4);
   mbed::FATFileSystem user_data_fs("fs");
   bool noUser = user_data_fs.mount(&user_data) != 0;
-  serialInfo(String(noUser ? "Missing" : "Existing") + " User partition");
+  serialInfo((noUser ? label_flash_missing : label_flash_existing) + String("User"));
 
   bool perform = force || noWifi || noOta || noUser;
 
   if (perform) {
-    serialLine(F("Erasing partitions, please wait..."));
+    serialLine(label_flash_erase_wait);
     _flashRoot->erase(0x0, _flashRoot->size());
-    serialInfo(F("Erase completed"));
+    serialInfo(label_flash_erase_done);
   }
 
   mbed::MBRBlockDevice::partition(_flashRoot, 1, 0x0B, 0, 1 * 1024 * 1024);
@@ -460,11 +455,11 @@ bool Opta::flashFormat(bool force) {
   // use space from 15.5MB to 16 MB for another fw, memory mapped
 
   if (force || noWifi) {
-    serialLine(F("Formatting Wifi partition"));
+    serialLine(label_flash_format + String("Wifi"));
 
     wifi_data_fs.unmount();
     if (wifi_data_fs.reformat(&wifi_data) != 0) {  // not used yet
-      serialWarn(F("Error formatting WiFi partition"));
+      serialWarn(label_flash_format_error);
       return false;
     }
 
@@ -474,21 +469,21 @@ bool Opta::flashFormat(bool force) {
   }
 
   if (force || noOta) {
-    serialLine(F("Formatting OTA partition"));
+    serialLine(label_flash_format + String("OTA"));
 
     ota_data_fs.unmount();
     if (ota_data_fs.reformat(&ota_data) != 0) {
-      serialWarn(F("Error formatting OTA partition"));
+      serialWarn(label_flash_format_error);
       return false;
     }
   }
 
   if (force || noUser) {
-    serialLine(F("Formatting User partition"));
+    serialLine(label_flash_format + String("User"));
 
     user_data_fs.unmount();
     if (user_data_fs.reformat(&user_data) != 0) {
-      serialWarn(F("Error formatting user partition"));
+      serialWarn(label_flash_format_error);
       return false;
     }
   }
@@ -501,14 +496,14 @@ bool Opta::flashWiFiFirmwareAndCertificates() {
   uint32_t chunk_size = 1024;
   uint32_t byte_count = 0;
 
-  serialLine(F("Flashing WiFi firmware"));
+  serialLine(label_flash_firmware);
   serialProgress(byte_count, file_size, 10, true);
   while (byte_count < file_size) {
     if (byte_count + chunk_size > file_size)
       chunk_size = file_size - byte_count;
     int ret = fwrite(&wifi_firmware_image_data[byte_count], chunk_size, 1, fp);
     if (ret != 1) {
-      serialWarn(F("Error writing firmware data"));
+      serialWarn(label_flash_firmware_error);
 
       return false;
     }
@@ -521,7 +516,7 @@ bool Opta::flashWiFiFirmwareAndCertificates() {
   chunk_size = 128;
   byte_count = 0;
 
-  serialLine(F("Flashing certificates"));
+  serialLine(label_flash_certificate);
   serialProgress(byte_count, cacert_pem_len, 10, true);
 
   while (byte_count < cacert_pem_len) {
@@ -529,7 +524,7 @@ bool Opta::flashWiFiFirmwareAndCertificates() {
       chunk_size = cacert_pem_len - byte_count;
     int ret = fwrite(&cacert_pem[byte_count], chunk_size, 1, fp);
     if (ret != 1) {
-      serialWarn(F("Error writing certificates"));
+      serialWarn(label_flash_certificate_error);
 
       return false;
     }
@@ -545,7 +540,7 @@ bool Opta::flashWiFiFirmwareMapped() {
   uint32_t byte_count = 0;
   const uint32_t offset = 15 * 1024 * 1024 + 1024 * 512;
 
-  serialLine(F("Flashing memory mapped WiFi firmware"));
+  serialLine(label_flash_mapped);
   serialProgress(byte_count, file_size, 10, true);
 
   while (byte_count < file_size) {
@@ -553,7 +548,7 @@ bool Opta::flashWiFiFirmwareMapped() {
       chunk_size = file_size - byte_count;
     int ret = _flashRoot->program(wifi_firmware_image_data, offset + byte_count, chunk_size);
     if (ret != 0) {
-      serialWarn(F("Error writing memory mapped firmware"));
+      serialWarn(label_flash_mapped_error);
 
       return false;
     }
@@ -569,13 +564,13 @@ bool Opta::flashWiFiFirmwareMapped() {
  */
 
 bool Opta::ledSetup() {
-  serialLine(F("Configuring User LEDs"));
+  serialLine(label_led_setup);
 
-  serialInfo("Set Green LED on pin " + String(BoardUserLeds[0]));
+  serialInfo(label_led_green + String(BoardUserLeds[0]));
   pinMode(BoardUserLeds[0], OUTPUT);
-  serialInfo("Set Red LED on pin " + String(BoardUserLeds[1]));
+  serialInfo(label_led_red + String(BoardUserLeds[1]));
   pinMode(BoardUserLeds[1], OUTPUT);
-  serialInfo("Set Blue LED on pin " + String(BoardUserLeds[2]));
+  serialInfo(label_led_blue + String(BoardUserLeds[2]));
   pinMode(BoardUserLeds[2], OUTPUT);
 
   digitalWrite(BoardUserLeds[0], LOW);
@@ -621,7 +616,7 @@ bool Opta::ledLoop() {
     if (_ledHeartBeatStep == 3 && _now - _ledHeartbeatStart > 10350) {
       _ledHeartBeatStep = 0;
       _ledHeartbeatStart = _now;
-      serialInfo("I'm alive at " + timeGet());
+      serialInfo(label_led_heartbeat + timeGet());
       ledSetGreen(_ledGreen);
       ledSetRed(_ledRed);
     }
@@ -678,9 +673,9 @@ void Opta::ledSetFreeze(bool on) {
  */
 
 bool Opta::buttonSetup() {
-  serialLine(F("Configuring buttons"));
+  serialLine(label_button_setup);
 
-  serialInfo("Set user button on pin " + String(BoardUserButtons[0]));
+  serialInfo(label_button_user + String(BoardUserButtons[0]));
   pinMode(BoardUserButtons[0], INPUT);
 
   return true;
@@ -735,7 +730,7 @@ unsigned long Opta::buttonDuration() {
     return 0;
   } else if (_buttonStart > 0 && _buttonDuration > 0) {
     _buttonStart = 0;
-    serialInfo("Button was activated " + String(_buttonDuration) + " milliseconds");
+    serialInfo(label_button_duration + String(_buttonDuration) + " milliseconds");
 
     return _buttonDuration;
   }
@@ -748,10 +743,10 @@ unsigned long Opta::buttonDuration() {
  */
 
 bool Opta::configSetup() {
-  serialLine(F("Configuring parameters"));
+  serialLine(label_config_setup);
 
   if (configReadFromFile()) {
-    serialWarn(F("Hold for 5 seconds the user button to fully reset device. Waiting "));
+    serialWarn(label_config_hold);
 
     unsigned long resetPushStart = 0;
     bool resetLedState = false;
@@ -827,7 +822,7 @@ bool Opta::configGetNetworkDhcp() const {
 }
 
 void Opta::configSetNetworkDhcp(const bool on) {
-  serialLine(String(on ? "Enabling" : "Disabling") + " DHCP");
+  serialLine((on ? label_config_mode_enable : label_config_mode_disable) + String("DHCP"));
   _configNetworkDhcp = on;
 }
 
@@ -836,7 +831,7 @@ bool Opta::configGetNetworkWifi() const {
 }
 
 void Opta::configSetNetworkWifi(const bool on) {
-  serialLine(String(on ? "Enabling" : "Disabling") + " Wifi");
+  serialLine((on ? label_config_mode_enable : label_config_mode_disable) + String("Wifi"));
   _configNetworkWifi = on;
 }
 
@@ -920,13 +915,13 @@ bool Opta::configSetInputType(size_t index, byte type) {
 }
 
 bool Opta::configReadFromJson(const char *buffer, size_t length) {
-  serialInfo(F("Reading configuration from JSON"));
+  serialInfo(label_config_json_read);
 
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, buffer, length);
 
   if (error) {
-    serialWarn(F("Failed to parse JSON"));
+    serialWarn(label_config_json_read_error);
 
     return false;
   }
@@ -947,7 +942,7 @@ bool Opta::configReadFromJson(const char *buffer, size_t length) {
       || doc["mqttBase"].isNull()
       || doc["mqttInterval"].isNull()
       || doc["inputs"].isNull()) {
-    serialWarn(F("Missing required keys in JSON"));
+    serialWarn(label_config_json_uncomplete);
 
     return false;
   }
@@ -1011,7 +1006,7 @@ String Opta::configWriteToJson(const bool nopass) {
 }
 
 void Opta::configReadFromDefault() {
-  serialInfo(F("Loading default configuration"));
+  serialInfo(label_config_default_read);
 
   _configDeviceId = OPTA2IOT_DEVICE_ID;
   _configDeviceUser = OPTA2IOT_DEVICE_USER;
@@ -1039,20 +1034,20 @@ void Opta::configReadFromDefault() {
 bool Opta::configWriteToFile() {
   String str = configWriteToJson(false);
 
-  serialInfo(F("Writing configuration to flash memory"));
+  serialInfo(label_config_file_write);
   kv_set("config", str.c_str(), str.length(), 0);
 
   return true;
 }
 
 bool Opta::configReadFromFile() {
-  serialInfo(F("Reading configuration from flash memory"));
+  serialInfo(label_config_file_read);
 
   bool ret = true;
   char readBuffer[1024];
   kv_get("config", readBuffer, 1024, 0);
   if (configReadFromJson(readBuffer, 1024) < 1) {
-    serialWarn(F("Configuration file not found"));
+    serialWarn(label_config_file_error);
     reset();
     ret = false;
   }
@@ -1065,9 +1060,9 @@ bool Opta::configReadFromFile() {
  */
 
 bool Opta::ioSetup() {
-  serialLine(F("Configuring IO"));
+  serialLine(label_io_setup);
 
-  serialInfo("Set IO resolution to " + String(IoResolution));
+  serialInfo(label_io_resolution + String(IoResolution));
   analogReadResolution(IoResolution);
 
   for (size_t i = 0; i < boardGetInputsNum(); ++i) {
@@ -1152,25 +1147,25 @@ void Opta::ioSetDigitalOuput(size_t index, bool on) {
  */
 
 bool Opta::networkSetup() {
-  serialLine(F("Configuring network"));
+  serialLine(label_network_setup);
 
   if (_boardType == BoardType::Wifi && _configNetworkWifi && _configNetworkSsid != "" && _configNetworkPassword != "") {
-    serialInfo(F("as Wifi standard network"));
+    serialInfo(label_network_mode + String("Wifi standard network"));
     _networkSelected = NetworkType::Standard;
 
     if (WiFi.status() == WL_NO_MODULE) {
       // Ko
-      return stop(F("Communication with WiFi module failed"));
+      return stop(label_network_fail);
     }
 
     networkConnectStandard();
   } else if (_boardType == BoardType::Wifi && _configNetworkWifi) {
-    serialInfo(F("as Wifi Access Point network"));
+    serialInfo(label_network_mode + String("Wifi Access Point network"));
     _networkSelected = NetworkType::AccessPoint;
 
     if (WiFi.status() == WL_NO_MODULE) {
       // Ok
-      return stop(F("Communication with WiFi module failed"));
+      return stop(label_network_fail);
     }
 
     String netApSsid = "opta2iot" + _configDeviceId;
@@ -1180,7 +1175,8 @@ bool Opta::networkSetup() {
     netApSsid.toCharArray(ssid, sizeof(ssid));
     netApPass.toCharArray(pass, sizeof(pass));
 
-    serialInfo("using SSID '" + netApSsid + "' and password '" + netApPass + "' and IP " + _configNetworkIp);
+    serialInfo(label_network_ssid + netApSsid + " / " + netApPass);
+    serialInfo(label_network_static_ip + _configNetworkIp);
 
     WiFi.config(networkParseIp(_configNetworkIp));
 
@@ -1189,19 +1185,19 @@ bool Opta::networkSetup() {
 
     if (ret != WL_AP_LISTENING) {
       // Ko
-      return stop(F("Failed to create Wifi Access Point"));
+      return stop(label_network_ap_fail);
     } else {
-      serialInfo(F("Wifi access point listening"));
+      serialInfo(label_network_ap_success);
       _networkConnected = true;
     }
     ledSetFreeze(false);
   } else {
-    serialInfo(F("as Ethernet network"));
+    serialInfo(label_network_mode + String("Ethernet network"));
     _networkSelected = NetworkType::Rj45;
 
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {
       // Ko
-      return stop(F("Communication with Ethernet module failed"));
+      return stop(label_network_fail);
     }
 
     networkConnectRj45();
@@ -1210,7 +1206,7 @@ bool Opta::networkSetup() {
   delay(1000);
 
   if (_networkConnected && _configNetworkDhcp) {
-    serialInfo("DHCP attributed IP is " + networkLocalIp().toString());
+    serialInfo(label_network_dhcp_ip + networkLocalIp().toString());
   }
 
   return true;
@@ -1228,11 +1224,11 @@ bool Opta::networkLoop() {
       }
     }
     if (!_networkConnected && Ethernet.linkStatus() == LinkON) {
-      serialInfo(F("Ethernet cable connected"));
+      serialInfo(label_network_eth_plug);
       _networkConnected = true;
     }
     if (_networkConnected && Ethernet.linkStatus() != LinkON) {
-      serialWarn(F("Ethernet cable disconnected"));
+      serialWarn(label_network_eth_unplug);
       _networkConnected = false;
     }
     if (_networkConnected && Ethernet.linkStatus() == LinkON) {
@@ -1249,11 +1245,11 @@ bool Opta::networkLoop() {
       _networkAccessPointStatus = WiFi.status();
 
       if (_networkAccessPointStatus == WL_AP_CONNECTED) {
-        serialInfo(F("Device connected to Access Point"));
+        serialInfo(label_network_ap_plug);
       } else if (_networkAccessPointFirstLoop) {  // do not display message on startup
         _networkAccessPointFirstLoop = false;
       } else {
-        serialWarn(F("Device disconnected from Access Point"));
+        serialWarn(label_network_ap_unplug);
       }
     }
   }
@@ -1286,33 +1282,33 @@ bool Opta::networkIsRj45() {
 }
 
 void Opta::networkConnectRj45() {
-  serialLine(F("Connecting Ethernet network"));
+  serialLine(label_network_eth);
 
   int ret = 0;
   ledSetFreeze(true);
   if (_configNetworkDhcp) {
-    serialInfo(F("using DHCP"));
+    serialInfo(label_network_mode + String("DHCP"));
     ret = Ethernet.begin();  // If failed this can take 1 minute long...
   } else {
-    serialInfo(F("using static IP"));
+    serialInfo(label_network_mode + String("Static IP"));
     ret = Ethernet.begin(networkParseIp(_configNetworkIp));  // If failed this can take 1 minute long...
   }
   ledSetFreeze(false);
 
   if (ret == 0) {
     _networkConnected = false;
-    serialWarn(F("Network connection failed."));
+    serialWarn(label_network_eth_fail);
     if (Ethernet.linkStatus() == LinkOFF) {
-      serialWarn(F("Ethernet cable not connected."));
+      serialWarn(label_network_eth_unplug);
     }
   } else {
     _networkConnected = true;
-    serialInfo("Network connected with IP " + networkLocalIp().toString());
+    serialInfo(label_network_eth_success + networkLocalIp().toString());
   }
 }
 
 void Opta::networkConnectStandard() {
-  serialLine(F("Connecting Wifi Standard network"));
+  serialLine(label_network_sta);
 
   String netApSsid = _configNetworkSsid;
   String netApPass = _configNetworkPassword;
@@ -1321,11 +1317,11 @@ void Opta::networkConnectStandard() {
   netApSsid.toCharArray(ssid, sizeof(ssid));
   netApPass.toCharArray(pass, sizeof(pass));
 
-  serialInfo("using SSID '" + netApSsid + "' and password '" + netApPass + "'");
+  serialInfo(label_network_ssid + netApSsid + " / " + netApPass);
   if (_configNetworkDhcp) {
-    serialInfo(F("using DHCP"));
+    serialInfo(label_network_mode + String("DHCP"));
   } else {
-    serialInfo(F("using static IP"));
+    serialInfo(label_network_mode + String("Static IP"));
     WiFi.config(networkParseIp(_configNetworkIp));
   }
 
@@ -1334,10 +1330,10 @@ void Opta::networkConnectStandard() {
   ledSetFreeze(false);
 
   if (ret != WL_CONNECTED) {
-    serialWarn(F("Failed to connect Wifi"));
+    serialWarn(label_network_sta_fail);
     _networkConnected = false;
   } else {
-    serialInfo(F("Wifi connected"));
+    serialInfo(label_network_sta_success);
     _networkConnected = true;
   }
 }
@@ -1347,7 +1343,7 @@ void Opta::networkConnectStandard() {
  */
 
 bool Opta::timeSetup() {
-  serialLine(F("Configuring time"));
+  serialLine(label_time_setup);
 
   timeUpdate();
 
@@ -1363,14 +1359,14 @@ bool Opta::timeLoop(bool startBenchmark) {
 
   // Loop benchmark
   if (startBenchmark) {
-    serialLine(F("Getting loop time"));
+    serialLine(label_time_loop_start);
 
     _timeBenchmarkTime = _now;
     _timeBenchmarkCount = _timeBenchmarkRepeat = _timeBenchmarkSum = 0;
   } else if (_timeBenchmarkTime > 0) {
     _timeBenchmarkCount++;
     if (_now - _timeBenchmarkTime > 1000) {
-      serialInfo(String(_timeBenchmarkCount) + " loops per second");
+      serialInfo(label_time_loop_line + String(_timeBenchmarkCount));
 
       if (_timeBenchmarkRepeat < 10) {
         _timeBenchmarkTime = _now;
@@ -1380,7 +1376,7 @@ bool Opta::timeLoop(bool startBenchmark) {
       } else {
         _timeBenchmarkTime = 0;
 
-        serialInfo("Average of " + String(_timeBenchmarkSum / 10) + " loops per second");
+        serialInfo(label_time_loop_average + String(_timeBenchmarkSum / 10));
       }
     }
   }
@@ -1390,7 +1386,7 @@ bool Opta::timeLoop(bool startBenchmark) {
 
 void Opta::timeUpdate() {
   if (_networkConnected && (_networkSelected != NetworkType::AccessPoint)) {
-    serialLine(F("Updating local time"));
+    serialLine(label_time_update);
 
     ledSetFreeze(true);
     if (_networkSelected == NetworkType::Standard) {
@@ -1398,11 +1394,11 @@ void Opta::timeUpdate() {
       NTPClient timeClient(wifiUdpClient, TimeServer, _configTimeOffset * 3600, 0);
       timeClient.begin();
       if (!timeClient.update()) {
-        serialWarn(F("Failed to update local time"));
+        serialWarn(label_time_update_fail);
       } else {
         const unsigned long epoch = timeClient.getEpochTime();
         set_time(epoch);
-        serialInfo("Time set to " + timeClient.getFormattedTime());
+        serialInfo(label_time_update_success + timeClient.getFormattedTime());
         _timeUpdated = true;
       }
     } else if (_networkSelected == NetworkType::Rj45) {
@@ -1410,11 +1406,11 @@ void Opta::timeUpdate() {
       NTPClient timeClient(ethernetUdpClient, TimeServer, _configTimeOffset * 3600, 0);
       timeClient.begin();
       if (!timeClient.update()) {
-        serialWarn(F("Failed to update local time"));
+        serialWarn(label_time_update_fail);
       } else {
         const unsigned long epoch = timeClient.getEpochTime();
         set_time(epoch);
-        serialInfo("Time set to " + timeClient.getFormattedTime());
+        serialInfo(label_time_update_success + timeClient.getFormattedTime());
         _timeUpdated = true;
       }
     }
@@ -1435,9 +1431,9 @@ String Opta::timeGet() {
  */
 
 bool Opta::mqttSetup() {
-  serialLine(F("Configuring MQTT client"));
+  serialLine(label_mqtt_setup);
 
-  serialInfo("using server " + _configMqttIp + ":" + String(_configMqttPort));
+  serialInfo(label_mqtt_server + _configMqttIp + ":" + String(_configMqttPort));
 
   ledSetFreeze(true);
   if (_networkSelected == NetworkType::Rj45) {
@@ -1462,7 +1458,7 @@ bool Opta::mqttLoop() {
       String rspTopic = mqttClient.messageTopic();
       String rspPayload = "";
 
-      for (size_t index = 0; index < rspSize; index++) {
+      for (int index = 0; index < rspSize; index++) {
         rspPayload += (char)mqttClient.read();
       }
 
@@ -1493,29 +1489,29 @@ void Opta::mqttConnect() {
 
   _mqttConnected = false;
   _mqttLastRetry = millis();
-  serialLine(F("Connecting to MQTT broker"));
+  serialLine(label_mqtt_broker);
 
   ledSetFreeze(true);
   mqttClient.setId(_configDeviceId);
   mqttClient.setUsernamePassword(_configMqttUser, _configMqttPassword);
   if (!mqttClient.connect(_configMqttIp.c_str(), _configMqttPort)) {
-    serialWarn(F("Failed to connect to MQTT broker"));
+    serialWarn(label_mqtt_broker_fail);
     ledSetFreeze(false);
     return;
   }
   ledSetFreeze(false);
 
-  serialInfo(F("MQTT broker found"));
+  serialInfo(label_mqtt_broker_success);
   _mqttConnected = true;
 
   String topic = _configMqttBase + _configDeviceId + "/device/get";  // command for device information
   mqttClient.subscribe(topic);
-  serialInfo("Subcribed to " + topic);
+  serialInfo(label_mqtt_subscribe + topic);
 
   for (size_t i = 0; i < boardGetOutputsNum(); i++) {
     String topic = _configMqttBase + _configDeviceId + "/O" + String(i + 1);  // command for outputs
     mqttClient.subscribe(topic);
-    serialInfo("Subcribed to " + topic);
+    serialInfo(label_mqtt_subscribe + topic);
   }
 
   mqttPublishDevice();
@@ -1544,7 +1540,7 @@ bool Opta::mqttPublish(String topic, String message) {
 }
 
 void Opta::mqttReceive(String &topic, String &payload) {
-  serialLine("Receiving MQTT command " + topic + ": " + payload);
+  serialLine(label_mqtt_receive + topic + " = " + payload);
 
   String match = _configMqttBase + _configDeviceId + "/device/get";
   if (topic == match) {
@@ -1564,7 +1560,7 @@ void Opta::mqttReceive(String &topic, String &payload) {
 
 void Opta::mqttPublishDevice() {
   if (_networkConnected && _mqttConnected) {
-    serialLine(F("Publishing device informations to MQTT"));
+    serialLine(label_mqtt_publish_device);
 
     String rootTopic = _configMqttBase + _configDeviceId;
 
@@ -1583,7 +1579,7 @@ void Opta::mqttPublishDevice() {
 
 void Opta::mqttPublishInputs() {
   if (_networkConnected && _mqttConnected) {
-    serialLine(F("Publishing inputs informations to MQTT"));
+    serialLine(label_mqtt_publish_inputs);
 
     String rootTopic = _configMqttBase + _configDeviceId + "/";
     for (size_t i = 0; i < boardGetInputsNum(); i++) {
@@ -1607,16 +1603,16 @@ void Opta::mqttPublishInputs() {
  */
 
 bool Opta::webSetup() {
-  serialLine(F("Configuring web server"));
+  serialLine(label_web_setup);
 
   ledSetFreeze(true);
   webEthernetServer = EthernetServer(80);
   webWifiServer = WiFiServer(80);
   if (_networkSelected == NetworkType::Rj45) {
-    serialInfo("as Ethernet Web server");
+    serialInfo(label_web_ethernet);
     webEthernetServer.begin();
   } else {
-    serialInfo("as Wifi Web server");
+    serialInfo(label_web_wifi);
     webWifiServer.begin();
   }
   ledSetFreeze(false);
@@ -1755,14 +1751,14 @@ void Opta::webSendFavicon(Client *&client) {
 
   const byte bufferSize = 48;
   uint8_t buffer[bufferSize];
-  const size_t n = sizeof htmlFavicon / bufferSize;
-  const size_t r = sizeof htmlFavicon % bufferSize;
-  for (size_t i = 0; i < sizeof htmlFavicon; i += bufferSize) {
-    memcpy_P(buffer, htmlFavicon + i, bufferSize);
+  const size_t n = sizeof web_favicon_hex / bufferSize;
+  const size_t r = sizeof web_favicon_hex % bufferSize;
+  for (size_t i = 0; i < sizeof web_favicon_hex; i += bufferSize) {
+    memcpy_P(buffer, web_favicon_hex + i, bufferSize);
     client->write(buffer, bufferSize);
   }
   if (r != 0) {
-    memcpy_P(buffer, htmlFavicon + n * bufferSize, r);
+    memcpy_P(buffer, web_favicon_hex + n * bufferSize, r);
     client->write(buffer, r);
   }
 }
@@ -1772,7 +1768,7 @@ void Opta::webSendStyle(Client *&client) {
   client->println("Content-Type: text/css");
   client->println("Connection: close");
   client->println();
-  client->println(htmlStyle);
+  client->println(web_style_css);
 }
 
 void Opta::webSendAuth(Client *&client) {
@@ -1781,7 +1777,7 @@ void Opta::webSendAuth(Client *&client) {
   client->println("Content-Type: text/html");
   client->println("Connnection: close");
   client->println();
-  client->println(htmlAuth);
+  client->println(web_auth_html);
 }
 
 void Opta::webSendError(Client *&client) {
@@ -1789,7 +1785,7 @@ void Opta::webSendError(Client *&client) {
   client->println("Content-Type: text/html");
   client->println("Connnection: close");
   client->println();
-  client->println(htmlError);
+  client->println(web_error_html);
 }
 
 void Opta::webSendHome(Client *&client) {
@@ -1797,7 +1793,7 @@ void Opta::webSendHome(Client *&client) {
   client->println("Content-Type: text/html");
   client->println("Connection: close");
   client->println();
-  client->println(htmlHome);
+  client->println(web_home_html);
 }
 
 void Opta::webSendDevice(Client *&client) {
@@ -1805,7 +1801,7 @@ void Opta::webSendDevice(Client *&client) {
   client->println("Content-Type: text/html");
   client->println("Connection: close");
   client->println();
-  client->println(htmlDevice);
+  client->println(web_device_html);
 }
 
 void Opta::webSendConfig(Client *&client) {
@@ -1852,7 +1848,7 @@ void Opta::webSendData(Client *&client) {
 }
 
 void Opta::webReceiveConfig(Client *&client) {
-  serialLine(F("Parsing received configuration"));
+  serialLine(label_web_config);
 
   bool isValid = true;
   String jsonString = "";
@@ -1873,19 +1869,19 @@ void Opta::webReceiveConfig(Client *&client) {
   }
 
   if (!isValid || configReadFromJson(jsonString.c_str(), jsonString.length()) < 1) {
-    serialWarn("Failed to load configuration from response");
+    serialWarn(label_web_config_fail);
     isValid = false;
   } else {
     if (_configDeviceId == "") {  // device ID must be set
-      serialWarn("Missing device ID");
+      serialWarn(label_web_config_fail_id);
       isValid = false;
     }
     if (_configDeviceUser == "") {  // device user must be set
-      serialWarn("Missing device user");
+      serialWarn(label_web_config_fail_user);
       isValid = false;
     }
     if (_configDevicePassword == "") {  // get old device password if none set
-      serialInfo("Get previous device password");
+      serialInfo(label_web_config_keep_device);
       configSetDevicePassword(oldDevicePassword);
     }
     int offset = _configTimeOffset;
@@ -1893,11 +1889,11 @@ void Opta::webReceiveConfig(Client *&client) {
       setTimeOffset(0);
     }
     if (_configNetworkPassword == "" && _configNetworkSsid != "") {  // get old wifi password if none set
-      serialInfo("Get previous Wifi password");
+      serialInfo(label_web_config_keep_wifi);
       configSetNetworkPassword(oldNetPassword);
     }
     if (_configMqttPassword == "" && _configMqttUser != "") {  // get old mqtt password if none set
-      serialInfo("Get previous MQTT password");
+      serialInfo(label_web_config_keep_mqtt);
       configSetMqttPassword(oldMqttPassword);
     }
   }
