@@ -32,7 +32,6 @@
 
 // Opta board info
 #include "opta_info.h"  //mbed
-OptaBoardInfo *info;
 OptaBoardInfo *boardInfo();
 
 // Flash
@@ -103,7 +102,7 @@ bool Opta::loop() {
 }
 
 bool Opta::startSetup() {
-  _now = millis();
+  now(millis());
 
   return true;
 }
@@ -111,20 +110,20 @@ bool Opta::startSetup() {
 bool Opta::endSetup() {
   //thread(); // It is better to do it in .ino file
 
-  float last = floor((millis() - _now) / 1000);
+  float last = floor((millis() - now()) / 1000);
   serialLine(label_setup_end + String((int)last) + " secondes");
 
   return true;
 }
 
 bool Opta::startLoop() {
-  _now = millis();
+  now(millis());
 
-  return !_stop;
+  return running();
 }
 
 bool Opta::endLoop() {
-  _odd = !_odd;
+  odd(true);
 
   return true;
 }
@@ -136,9 +135,9 @@ bool Opta::stop(String reason) {
 bool Opta::stop(const char *reason) {
   serialWarn(reason);
   _stop = true;
-  digitalWrite(BoardUserLeds[0], HIGH);
-  digitalWrite(BoardUserLeds[1], LOW);
-  digitalWrite(BoardUserLeds[2], LOW);
+  ledSetGreen(true);
+  ledSetRed(false);
+  ledSetRed(false);
 
   return false;
 }
@@ -147,8 +146,16 @@ bool Opta::running() {
   return !_stop;
 }
 
+bool Opta::odd(bool change) {
+  if (change) {
+    _odd = !_odd;
+  }
+
+  return _odd;
+}
+
 void Opta::print(String str) {
-  Serial.print(str);
+  print(str.c_str());
 }
 void Opta::print(const char *str) {
   Serial.print(str);
@@ -184,9 +191,9 @@ void Opta::reboot() {
 }
 
 void Opta::thread() {
-  serialLine(label_main_thread);
-
   if (!_threadStarted) {
+    serialLine(label_main_thread);
+
     _threadStarted = true;
 
     static rtos::Thread thread;
@@ -350,31 +357,69 @@ String Opta::serialReceived() {
 bool Opta::boardSetup() {
   serialLine(label_board_setup);
 
-  info = boardInfo();
+  OptaBoardInfo *info = boardInfo();
   if (info->magic == 0xB5) {
     if (info->_board_functionalities.ethernet == 1) {
-      _boardType = BoardType::Lite;
-      _boardName = label_board_name_lite;
+      boardSetType(BoardType::BoardLite);
       //MacEthernet = String(info->mac_address[0], HEX) + ":" + String(info->mac_address[1], HEX) + ":" + String(info->mac_address[2], HEX) + ":" + String(info->mac_address[3], HEX) + ":" + String(info->mac_address[4], HEX) + ":" + String(info->mac_address[5], HEX);
     }
     if (info->_board_functionalities.rs485 == 1) {
-      _boardType = BoardType::Rs485;
-      _boardName = label_board_name_rs485;
+      boardSetType(BoardType::BoardRs485);
     }
     if (info->_board_functionalities.wifi == 1) {
-      _boardType = BoardType::Wifi;
-      _boardName = label_board_name_wifi;
+      boardSetType(BoardType::BoardWifi);
       //MacWifi = String(info->mac_address_2[0], HEX) + ":" + String(info->mac_address_2[1], HEX) + ":" + String(info->mac_address_2[2], HEX) + ":" + String(info->mac_address_2[3], HEX) + ":" + String(info->mac_address_2[4], HEX) + ":" + String(info->mac_address_2[5], HEX);
     }
   }
 
-  if (_boardType == BoardType::Undefined) {
+  if (boardIsNone()) {
     // Ko
     return stop(label_board_error);
   }
-  serialInfo(label_board_name + String(_boardName));
+  serialInfo(label_board_name + boardGetName());
 
   return true;
+}
+
+bool Opta::boardSetType(BoardType type) {
+  _boardType = type;
+
+  return true;
+}
+
+bool Opta::boardIsNone() {
+  return _boardType == BoardType::BoardNone;
+}
+
+bool Opta::boardIsLite() {
+  return _boardType == BoardType::BoardLite;
+}
+
+bool Opta::boardIsRs485() {
+  return _boardType == BoardType::BoardRs485;
+}
+
+bool Opta::boardIsWifi() {
+  return _boardType == BoardType::BoardWifi;
+}
+
+String Opta::boardGetName() {
+  String name;
+  switch(_boardType) {
+    case BoardType::BoardLite:
+      name = label_board_name_lite;
+      break;
+    case BoardType::BoardRs485:
+      name = label_board_name_rs485;
+      break;
+    case BoardType::BoardWifi:
+      name = label_board_name_wifi;
+      break;
+    default:
+      name = label_board_name_none;
+    }
+
+    return name;
 }
 
 size_t Opta::boardGetInputsNum() {
@@ -573,29 +618,29 @@ bool Opta::ledSetup() {
   serialInfo(label_led_blue + String(BoardUserLeds[2]));
   pinMode(BoardUserLeds[2], OUTPUT);
 
-  digitalWrite(BoardUserLeds[0], LOW);
-  digitalWrite(BoardUserLeds[1], LOW);
-  digitalWrite(BoardUserLeds[2], LOW);
+  ledSetGreen(false);
+  ledSetRed(false);
+  ledSetBlue(false);
 
   return true;
 }
 
 bool Opta::ledLoop() {
-  if (_now - _ledConnectionStart > 750) {
+  if (now() - _ledConnectionStart > 750) {
     // connections
     _ledConnectionState = !_ledConnectionState;
-    _ledConnectionStart = _now;
+    _ledConnectionStart = now();
 
-    ledSetRed(_networkConnected ? false : _ledConnectionState);
-    ledSetGreen(_networkConnected && _mqttConnected ? _ledConnectionState : false);
-    if (_networkSelected == NetworkType::AccessPoint) {
+    ledSetRed(networkIsConnected() ? false : _ledConnectionState);
+    ledSetGreen(networkIsConnected() && mqttIsConnected() ? _ledConnectionState : false);
+    if (networkIsAccessPoint()) {
       ledSetBlue(_ledConnectionState);
-    } else if (_networkSelected == NetworkType::Standard) {
+    } else if (networkIsStandard()) {
       ledSetBlue(true);
     }
   }
 
-  if (_now - _ledHeartbeatStart > 10000) {
+  if (now() - _ledHeartbeatStart > 10000) {
     if (_ledHeartBeatStep == 0) {
       _ledHeartBeatStep = 1;
       _ledGreen = ledGetGreen();
@@ -603,19 +648,19 @@ bool Opta::ledLoop() {
       ledSetGreen(false);
       ledSetRed(false);
     }
-    if (_ledHeartBeatStep == 1 && _now - _ledHeartbeatStart > 10150) {
+    if (_ledHeartBeatStep == 1 && now() - _ledHeartbeatStart > 10150) {
       _ledHeartBeatStep = 2;
       ledSetGreen(true);
       ledSetRed(true);
     }
-    if (_ledHeartBeatStep == 2 && _now - _ledHeartbeatStart > 10200) {
+    if (_ledHeartBeatStep == 2 && now() - _ledHeartbeatStart > 10200) {
       _ledHeartBeatStep = 3;
       ledSetGreen(false);
       ledSetRed(false);
     }
-    if (_ledHeartBeatStep == 3 && _now - _ledHeartbeatStart > 10350) {
+    if (_ledHeartBeatStep == 3 && now() - _ledHeartbeatStart > 10350) {
       _ledHeartBeatStep = 0;
-      _ledHeartbeatStart = _now;
+      _ledHeartbeatStart = now();
       serialInfo(label_led_heartbeat + timeGet());
       ledSetGreen(_ledGreen);
       ledSetRed(_ledRed);
@@ -692,21 +737,21 @@ bool Opta::buttonLoop() {
     }
 
     // if network not connected or as access point and button push less than 1s: switch DHCP mode in config and reboot
-    if ((!_networkConnected || (_networkSelected == NetworkType::AccessPoint)) && (duration < 1000)) {
+    if ((!networkIsConnected() || networkIsAccessPoint()) && (duration < 1000)) {
       configSetNetworkDhcp(configGetNetworkDhcp() ? false : true);
       configWriteToFile();
       reboot();
     }
 
     // if network not connected or as access point and button push bettwen 1s and 3s: switch WIFI mode in config and reboot
-    if ((!_networkConnected || (_networkSelected == NetworkType::AccessPoint)) && (duration > 1000) && (duration < 3000)) {
+    if ((!networkIsConnected() || networkIsAccessPoint()) && (duration > 1000) && (duration < 3000)) {
       configSetNetworkWifi(configGetNetworkWifi() ? false : true);
       configWriteToFile();
       reboot();
     }
 
     // if network connected and mqtt connected and button push less than 1s : publish MQTT info
-    if (_networkConnected && !(_networkSelected == NetworkType::AccessPoint) && _mqttConnected && (duration < 1000)) {
+    if (networkIsConnected() && !networkIsAccessPoint() && mqttIsConnected() && (duration < 1000)) {
       mqttPublishDevice();
       mqttPublishInputs();
     }
@@ -723,9 +768,9 @@ unsigned long Opta::buttonDuration() {
   if (buttonGet()) {
     if (_buttonStart == 0) {
       delay(1);
-      _buttonStart = _now;
+      _buttonStart = now();
     }
-    _buttonDuration = _now - _buttonStart;
+    _buttonDuration = now() - _buttonStart;
 
     return 0;
   } else if (_buttonStart > 0 && _buttonDuration > 0) {
@@ -805,7 +850,7 @@ int Opta::configGetTimeOffset() const {
   return _configTimeOffset;
 }
 
-void Opta::setTimeOffset(const int offset) {
+void Opta::configSetTimeOffset(const int offset) {
   _configTimeOffset = offset;
 }
 
@@ -903,11 +948,11 @@ byte Opta::configGetInputType(size_t index) {
   if (index < boardGetInputsNum()) {
     return _configInputs[index];
   }
-  return IoType::Analog;
+  return IoType::IoAnalog;
 }
 
 bool Opta::configSetInputType(size_t index, byte type) {
-  if (index < boardGetInputsNum() && (type == IoType::Pulse || type == IoType::Digital || type == IoType::Analog)) {
+  if (index < boardGetInputsNum() && (type == IoType::IoPulse || type == IoType::IoDigital || type == IoType::IoAnalog)) {
     _configInputs[index] = type;
     return true;
   }
@@ -947,26 +992,26 @@ bool Opta::configReadFromJson(const char *buffer, size_t length) {
     return false;
   }
 
-  _configDeviceId = doc["deviceId"].as<String>();
-  _configDeviceUser = doc["deviceUser"].as<String>();
-  _configDevicePassword = doc["devicePassword"].as<String>();
-  _configTimeOffset = doc["timeOffset"].as<int>();
-  _configNetworkIp = doc["netIp"].as<String>();
-  _configNetworkDhcp = doc["netDhcp"].as<bool>();
-  _configNetworkWifi = doc["netWifi"].as<bool>();
-  _configNetworkSsid = doc["netSsid"].as<String>();
-  _configNetworkPassword = doc["netPassword"].as<String>();
-  _configMqttIp = doc["mqttIp"].as<String>();
-  _configMqttPort = doc["mqttPort"].as<int>();
-  _configMqttUser = doc["mqttUser"].as<String>();
-  _configMqttPassword = doc["mqttPassword"].as<String>();
-  _configMqttBase = doc["mqttBase"].as<String>();
-  _configMqttInterval = doc["mqttInterval"].as<int>() < 0 ? 0 : doc["mqttInterval"].as<int>();
+  configSetDeviceId(doc["deviceId"].as<String>());
+  configSetDeviceUser(doc["deviceUser"].as<String>());
+  configSetDevicePassword(doc["devicePassword"].as<String>());
+  configSetTimeOffset(doc["timeOffset"].as<int>());
+  configSetNetworkIp(doc["netIp"].as<String>());
+  configSetNetworkDhcp(doc["netDhcp"].as<bool>());
+  configSetNetworkWifi(doc["netWifi"].as<bool>());
+  configSetNetworkSsid(doc["netSsid"].as<String>());
+  configSetNetworkPassword(doc["netPassword"].as<String>());
+  configSetMqttIp(doc["mqttIp"].as<String>());
+  configSetMqttPort(doc["mqttPort"].as<int>());
+  configSetMqttUser(doc["mqttUser"].as<String>());
+  configSetMqttPassword(doc["mqttPassword"].as<String>());
+  configSetMqttBase(doc["mqttBase"].as<String>());
+  configSetMqttInterval(doc["mqttInterval"].as<int>() < 0 ? 0 : doc["mqttInterval"].as<int>());
 
   for (size_t i = 0; i < boardGetInputsNum(); ++i) {
     String pinName = "I" + String(i + 1);
     int pinType = doc["inputs"][pinName].as<int>();
-    _configInputs[i] = pinType == IoType::Analog || pinType == IoType::Digital || pinType == IoType::Pulse ? pinType : IoType::Analog;
+    configSetInputType(i, (pinType == IoType::IoAnalog || pinType == IoType::IoDigital || pinType == IoType::IoPulse) ? pinType : IoType::IoAnalog);
   }
 
   return true;
@@ -978,25 +1023,25 @@ String Opta::configWriteToJson(const bool nopass) {
   JsonDocument doc;
 
   doc["version"] = version();
-  doc["deviceId"] = _configDeviceId;
-  doc["deviceUser"] = _configDeviceUser;
-  doc["devicePassword"] = nopass ? "" : _configDevicePassword;
-  doc["timeOffset"] = _configTimeOffset;
-  doc["netIp"] = _configNetworkIp;
-  doc["netDhcp"] = _configNetworkDhcp;
-  doc["netWifi"] = _configNetworkWifi;
-  doc["netSsid"] = _configNetworkSsid;
-  doc["netPassword"] = nopass ? "" : _configNetworkPassword;
-  doc["mqttIp"] = _configMqttIp;
-  doc["mqttPort"] = _configMqttPort;
-  doc["mqttUser"] = _configMqttUser;
-  doc["mqttPassword"] = nopass ? "" : _configMqttPassword;
-  doc["mqttBase"] = _configMqttBase;
-  doc["mqttInterval"] = _configMqttInterval;
+  doc["deviceId"] = configGetDeviceId();
+  doc["deviceUser"] = configGetDeviceUser();
+  doc["devicePassword"] = nopass ? "" : configGetDevicePassword();
+  doc["timeOffset"] = configGetTimeOffset();
+  doc["netIp"] = configGetNetworkIp();
+  doc["netDhcp"] = configGetNetworkDhcp();
+  doc["netWifi"] = configGetNetworkWifi();
+  doc["netSsid"] = configGetNetworkSsid();
+  doc["netPassword"] = nopass ? "" : configGetNetworkPassword();
+  doc["mqttIp"] = configGetMqttIp();
+  doc["mqttPort"] = configGetMqttPort();
+  doc["mqttUser"] = configGetMqttUser();
+  doc["mqttPassword"] = nopass ? "" : configGetMqttPassword();
+  doc["mqttBase"] = configGetMqttBase();
+  doc["mqttInterval"] = configGetMqttInterval();
 
   for (size_t i = 0; i < boardGetInputsNum(); ++i) {
     String pinName = "I" + String(i + 1);
-    doc["inputs"][pinName] = _configInputs[i];
+    doc["inputs"][pinName] = configGetInputType(i);
   }
 
   String jsonString;
@@ -1008,26 +1053,26 @@ String Opta::configWriteToJson(const bool nopass) {
 void Opta::configReadFromDefault() {
   serialInfo(label_config_default_read);
 
-  _configDeviceId = OPTA2IOT_DEVICE_ID;
-  _configDeviceUser = OPTA2IOT_DEVICE_USER;
-  _configDevicePassword = OPTA2IOT_DEVICE_PASSWORD;
-  _configTimeOffset = OPTA2IOT_TIME_OFFSET;
+  configSetDeviceId(OPTA2IOT_DEVICE_ID);
+  configSetDeviceUser(OPTA2IOT_DEVICE_USER);
+  configSetDevicePassword(OPTA2IOT_DEVICE_PASSWORD);
+  configSetTimeOffset(OPTA2IOT_TIME_OFFSET);
 
-  _configNetworkIp = OPTA2IOT_NET_IP;
-  _configNetworkDhcp = OPTA2IOT_NET_DHCP;
-  _configNetworkWifi = OPTA2IOT_NET_WIFI;
-  _configNetworkSsid = OPTA2IOT_NET_SSID;
-  _configNetworkPassword = OPTA2IOT_NET_PASSWORD;
+  configSetNetworkIp(OPTA2IOT_NET_IP);
+  configSetNetworkDhcp(OPTA2IOT_NET_DHCP);
+  configSetNetworkWifi(OPTA2IOT_NET_WIFI);
+  configSetNetworkSsid(OPTA2IOT_NET_SSID);
+  configSetNetworkPassword(OPTA2IOT_NET_PASSWORD);
 
-  _configMqttIp = OPTA2IOT_MQTT_IP;
-  _configMqttPort = OPTA2IOT_MQTT_PORT;
-  _configMqttUser = OPTA2IOT_MQTT_USER;
-  _configMqttPassword = OPTA2IOT_MQTT_PASSWORD;
-  _configMqttBase = OPTA2IOT_MQTT_BASE;
-  _configMqttInterval = OPTA2IOT_MQTT_INTERVAL;
+  configSetMqttIp(OPTA2IOT_MQTT_IP);
+  configSetMqttPort(OPTA2IOT_MQTT_PORT);
+  configSetMqttUser(OPTA2IOT_MQTT_USER);
+  configSetMqttPassword(OPTA2IOT_MQTT_PASSWORD);
+  configSetMqttBase(OPTA2IOT_MQTT_BASE);
+  configSetMqttInterval(OPTA2IOT_MQTT_INTERVAL);
 
   for (size_t i = 0; i < boardGetInputsNum(); i++) {
-    _configInputs[i] = IoType::Digital;
+    configSetInputType(i, IoType::IoDigital);
   }
 }
 
@@ -1066,8 +1111,8 @@ bool Opta::ioSetup() {
   analogReadResolution(IoResolution);
 
   for (size_t i = 0; i < boardGetInputsNum(); ++i) {
-    serialInfo("Set input " + String(i + 1) + " of type " + String(_configInputs[i]) + " on pin " + String(BoardInputs[i]));
-    if (_configInputs[i] == IoType::Digital || _configInputs[i] == IoType::Pulse) {
+    serialInfo("Set input " + String(i + 1) + " of type " + String(configGetInputType(i)) + " on pin " + String(BoardInputs[i]));
+    if (configGetInputType(i) == IoType::IoDigital || configGetInputType(i) == IoType::IoPulse) {
       pinMode(BoardInputs[i], INPUT);
     }
   }
@@ -1076,44 +1121,38 @@ bool Opta::ioSetup() {
     pinMode(BoardOutputs[i], OUTPUT);
     pinMode(BoardOutputsLeds[i], OUTPUT);
 
-    digitalWrite(BoardOutputs[i], LOW);
-    digitalWrite(BoardOutputsLeds[i], LOW);
+    ioSetDigitalOuput(i, false);
   }
 
   return true;
 }
 
 bool Opta::ioLoop() {
-  if (_networkConnected && _mqttConnected) {
-    if (_now - _ioLastPoll > IoPollDelay) {  // Inputs loop delay
+  if (networkIsConnected() && mqttIsConnected()) {
+    if (now() - _ioLastPoll > IoPollDelay) {  // Inputs loop delay
       String inputsCurrent[IoMaxInputs];
       for (size_t i = 0; i < boardGetInputsNum(); i++) {
-        if (_configInputs[i] == IoType::Analog) {
-          float value = analogRead(BoardInputs[i]) * (3.249 / ((1 << IoResolution) - 1)) / 0.3034;
-          char buffer[10];
-          snprintf(buffer, sizeof(buffer), "%0.1f", value);
-
-          inputsCurrent[i] = String(buffer).c_str();
+        if (configGetInputType(i) == IoType::IoAnalog) {
+          inputsCurrent[i] = String(ioGetAnalogInputString(i)).c_str();
         } else {
-          int value = digitalRead(BoardInputs[i]);
-          inputsCurrent[i] = String(value).c_str();
+          inputsCurrent[i] = String(ioGetDigitalInput(i)).c_str();
         }
 
         if (!inputsCurrent[i].equals(_ioPreviousState[i])) {
           //ts ... && only 1 for pulse
-          if (_ioLastPoll > 0 && (_configInputs[i] != IoType::Pulse || inputsCurrent[i].equals(String('1')))) {
+          if (_ioLastPoll > 0 && (configGetInputType(i) != IoType::IoPulse || inputsCurrent[i].equals(String('1')))) {
             String inTopic = "I" + String(i + 1);
-            String rootTopic = _configMqttBase + _configDeviceId + "/";
+            String rootTopic = configGetMqttBase() + configGetDeviceId() + "/";
 
             mqttPublish(String(rootTopic + inTopic + "/val").c_str(), String(inputsCurrent[i]).c_str());
-            mqttPublish(String(rootTopic + inTopic + "/type").c_str(), String(_configInputs[i]).c_str());
+            mqttPublish(String(rootTopic + inTopic + "/type").c_str(), String(configGetInputType(i)).c_str());
 
             serialInfo(String("[" + inTopic + "] " + _ioPreviousState[i] + " => " + inputsCurrent[i]).c_str());
           }
           _ioPreviousState[i] = inputsCurrent[i];
         }
       }
-      _ioLastPoll = _now;
+      _ioLastPoll = now();
     }
   }
 
@@ -1121,7 +1160,7 @@ bool Opta::ioLoop() {
 }
 
 bool Opta::ioGetDigitalInput(size_t index) {
-  if (index < boardGetInputsNum() && (_configInputs[index] != IoType::Analog)) {
+  if (index < boardGetInputsNum() && (configGetInputType(index) != IoType::IoAnalog)) {
     return digitalRead(BoardInputs[index]) == 1;
   }
 
@@ -1129,16 +1168,25 @@ bool Opta::ioGetDigitalInput(size_t index) {
 }
 
 float Opta::ioGetAnalogInput(size_t index) {
-  if (index < boardGetInputsNum() && (_configInputs[index] != IoType::Analog)) {
+  if (index < boardGetInputsNum() && (configGetInputType(index) == IoType::IoAnalog)) {
     return analogRead(BoardInputs[index]) * (3.249 / ((1 << IoResolution) - 1)) / 0.3034;
   }
 
   return 0;
 }
 
+String Opta::ioGetAnalogInputString(size_t index) {
+  float value = ioGetAnalogInput(index);
+  char buffer[10];
+  snprintf(buffer, sizeof(buffer), "%0.1f", value);
+
+  return String(buffer);
+}
+
 void Opta::ioSetDigitalOuput(size_t index, bool on) {
   if (index < boardGetOutputsNum()) {
     digitalWrite(BoardOutputs[index], on ? 1 : 0);
+    digitalWrite(BoardOutputsLeds[index], on ? 1 : 0);
   }
 }
 
@@ -1149,9 +1197,9 @@ void Opta::ioSetDigitalOuput(size_t index, bool on) {
 bool Opta::networkSetup() {
   serialLine(label_network_setup);
 
-  if (_boardType == BoardType::Wifi && _configNetworkWifi && _configNetworkSsid != "" && _configNetworkPassword != "") {
+  if (boardIsWifi() && configGetNetworkWifi() && configGetNetworkSsid() != "" && configGetNetworkPassword() != "") {
     serialInfo(label_network_mode + String("Wifi standard network"));
-    _networkSelected = NetworkType::Standard;
+    networkSetType(NetworkType::NetworkStandard);
 
     if (WiFi.status() == WL_NO_MODULE) {
       // Ko
@@ -1159,16 +1207,16 @@ bool Opta::networkSetup() {
     }
 
     networkConnectStandard();
-  } else if (_boardType == BoardType::Wifi && _configNetworkWifi) {
+  } else if (boardIsWifi() && configGetNetworkWifi()) {
     serialInfo(label_network_mode + String("Wifi Access Point network"));
-    _networkSelected = NetworkType::AccessPoint;
+    networkSetType(NetworkType::NetworkAccessPoint);
 
     if (WiFi.status() == WL_NO_MODULE) {
       // Ok
       return stop(label_network_fail);
     }
 
-    String netApSsid = "opta2iot" + _configDeviceId;
+    String netApSsid = "opta2iot" + configGetDeviceId();
     String netApPass = "opta2iot";
     char ssid[32];
     char pass[32];
@@ -1176,9 +1224,9 @@ bool Opta::networkSetup() {
     netApPass.toCharArray(pass, sizeof(pass));
 
     serialInfo(label_network_ssid + netApSsid + " / " + netApPass);
-    serialInfo(label_network_static_ip + _configNetworkIp);
+    serialInfo(label_network_static_ip + configGetNetworkIp());
 
-    WiFi.config(networkParseIp(_configNetworkIp));
+    WiFi.config(networkParseIp(configGetNetworkIp()));
 
     ledSetFreeze(true);
     int ret = WiFi.beginAP(ssid, pass);
@@ -1188,24 +1236,24 @@ bool Opta::networkSetup() {
       return stop(label_network_ap_fail);
     } else {
       serialInfo(label_network_ap_success);
-      _networkConnected = true;
+      networkSetConnected(true);
     }
     ledSetFreeze(false);
   } else {
     serialInfo(label_network_mode + String("Ethernet network"));
-    _networkSelected = NetworkType::Rj45;
+    networkSetType(NetworkType::NetworkEthernet);
 
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {
       // Ko
       return stop(label_network_fail);
     }
 
-    networkConnectRj45();
+    networkConnectEthernet();
   }
 
   delay(1000);
 
-  if (_networkConnected && _configNetworkDhcp) {
+  if (networkIsConnected() && configGetNetworkDhcp()) {
     serialInfo(label_network_dhcp_ip + networkLocalIp().toString());
   }
 
@@ -1213,34 +1261,34 @@ bool Opta::networkSetup() {
 }
 
 bool Opta::networkLoop() {
-  if (_networkSelected == NetworkType::Rj45) {
+  if (networkIsEthernet()) {
     // mauvaise condition
-    if (!_networkConnected && (_networkLastRetry == 0 || _now - _networkLastRetry > (NetworkRetryDelay * 1000))) {
-      if (_networkConnected) {
-        _networkLastRetry = _now;
+    if (!networkIsConnected() && (_networkLastRetry == 0 || now() - _networkLastRetry > (NetworkRetryDelay * 1000))) {
+      if (networkIsConnected()) {
+        _networkLastRetry = now();
         Ethernet.maintain();
       } else if (Ethernet.linkStatus() == LinkON) {
-        networkConnectRj45();
+        networkConnectEthernet();
       }
     }
-    if (!_networkConnected && Ethernet.linkStatus() == LinkON) {
+    if (!networkIsConnected() && Ethernet.linkStatus() == LinkON) {
       serialInfo(label_network_eth_plug);
-      _networkConnected = true;
+      networkSetConnected(true);
     }
-    if (_networkConnected && Ethernet.linkStatus() != LinkON) {
+    if (networkIsConnected() && Ethernet.linkStatus() != LinkON) {
       serialWarn(label_network_eth_unplug);
-      _networkConnected = false;
+      networkSetConnected(false);
     }
-    if (_networkConnected && Ethernet.linkStatus() == LinkON) {
+    if (networkIsConnected() && Ethernet.linkStatus() == LinkON) {
       _networkLastRetry = 0;
-      _networkConnected = true;
+      networkSetConnected(true);
     }
-  } else if (_networkSelected == NetworkType::Standard) {
-    if (!_networkConnected && (_networkLastRetry == 0 || _now - _networkLastRetry > (NetworkRetryDelay * 1000))) {
-      _networkLastRetry = _now;
+  } else if (networkIsStandard()) {
+    if (!networkIsConnected() && (_networkLastRetry == 0 || now() - _networkLastRetry > (NetworkRetryDelay * 1000))) {
+      _networkLastRetry = now();
       networkConnectStandard();
     }
-  } else if (_networkSelected == NetworkType::AccessPoint) {
+  } else if (networkIsAccessPoint()) {
     if (_networkAccessPointStatus != WiFi.status()) {
       _networkAccessPointStatus = WiFi.status();
 
@@ -1265,44 +1313,59 @@ IPAddress Opta::networkParseIp(const String &ip) {
 }
 
 IPAddress Opta::networkLocalIp() {
-  return _networkSelected == NetworkType::Rj45 ? Ethernet.localIP() : WiFi.localIP();
+  return networkIsEthernet() ? Ethernet.localIP() : WiFi.localIP();
+}
+
+bool Opta::networkSetConnected(bool connected) {
+  _networkConnected = connected;
+
+  return true;
 }
 
 bool Opta::networkIsConnected() {
   return _networkConnected;
 }
-bool Opta::networkIsAccessPoint() {
-  return _networkSelected == NetworkType::AccessPoint;
-}
-bool Opta::networkIsStandard() {
-  return _networkSelected == NetworkType::Standard;
-}
-bool Opta::networkIsRj45() {
-  return _networkSelected == NetworkType::Rj45;
+
+bool Opta::networkSetType(NetworkType type) {
+  _networkType = type;
+
+  return true;
 }
 
-void Opta::networkConnectRj45() {
+bool Opta::networkIsAccessPoint() {
+  return _networkType == NetworkType::NetworkAccessPoint;
+}
+
+bool Opta::networkIsStandard() {
+  return _networkType == NetworkType::NetworkStandard;
+}
+
+bool Opta::networkIsEthernet() {
+  return _networkType == NetworkType::NetworkEthernet;
+}
+
+void Opta::networkConnectEthernet() {
   serialLine(label_network_eth);
 
   int ret = 0;
   ledSetFreeze(true);
-  if (_configNetworkDhcp) {
+  if (configGetNetworkDhcp()) {
     serialInfo(label_network_mode + String("DHCP"));
     ret = Ethernet.begin();  // If failed this can take 1 minute long...
   } else {
     serialInfo(label_network_mode + String("Static IP"));
-    ret = Ethernet.begin(networkParseIp(_configNetworkIp));  // If failed this can take 1 minute long...
+    ret = Ethernet.begin(networkParseIp(configGetNetworkIp()));  // If failed this can take 1 minute long...
   }
   ledSetFreeze(false);
 
   if (ret == 0) {
-    _networkConnected = false;
+    networkSetConnected(false);
     serialWarn(label_network_eth_fail);
     if (Ethernet.linkStatus() == LinkOFF) {
       serialWarn(label_network_eth_unplug);
     }
   } else {
-    _networkConnected = true;
+    networkSetConnected(true);
     serialInfo(label_network_eth_success + networkLocalIp().toString());
   }
 }
@@ -1310,19 +1373,19 @@ void Opta::networkConnectRj45() {
 void Opta::networkConnectStandard() {
   serialLine(label_network_sta);
 
-  String netApSsid = _configNetworkSsid;
-  String netApPass = _configNetworkPassword;
+  String netApSsid = configGetNetworkSsid();
+  String netApPass = configGetNetworkPassword();
   char ssid[32];
   char pass[32];
   netApSsid.toCharArray(ssid, sizeof(ssid));
   netApPass.toCharArray(pass, sizeof(pass));
 
   serialInfo(label_network_ssid + netApSsid + " / " + netApPass);
-  if (_configNetworkDhcp) {
+  if (configGetNetworkDhcp()) {
     serialInfo(label_network_mode + String("DHCP"));
   } else {
     serialInfo(label_network_mode + String("Static IP"));
-    WiFi.config(networkParseIp(_configNetworkIp));
+    WiFi.config(networkParseIp(configGetNetworkIp()));
   }
 
   ledSetFreeze(true);
@@ -1331,10 +1394,10 @@ void Opta::networkConnectStandard() {
 
   if (ret != WL_CONNECTED) {
     serialWarn(label_network_sta_fail);
-    _networkConnected = false;
+    networkSetConnected(false);
   } else {
     serialInfo(label_network_sta_success);
-    _networkConnected = true;
+    networkSetConnected(true);
   }
 }
 
@@ -1352,8 +1415,8 @@ bool Opta::timeSetup() {
 
 bool Opta::timeLoop(bool startBenchmark) {
   // If time update failed during setup, try every hour until success
-  if (!_timeUpdated && ((_now - 3600000) < _timeLastUpdate)) {
-    _timeLastUpdate = _now;
+  if (!_timeUpdated && ((now() - 3600000) < _timeLastUpdate)) {
+    _timeLastUpdate = now();
     timeUpdate();
   }
 
@@ -1361,15 +1424,15 @@ bool Opta::timeLoop(bool startBenchmark) {
   if (startBenchmark) {
     serialLine(label_time_loop_start);
 
-    _timeBenchmarkTime = _now;
+    _timeBenchmarkTime = now();
     _timeBenchmarkCount = _timeBenchmarkRepeat = _timeBenchmarkSum = 0;
   } else if (_timeBenchmarkTime > 0) {
     _timeBenchmarkCount++;
-    if (_now - _timeBenchmarkTime > 1000) {
+    if (now() - _timeBenchmarkTime > 1000) {
       serialInfo(label_time_loop_line + String(_timeBenchmarkCount));
 
       if (_timeBenchmarkRepeat < 10) {
-        _timeBenchmarkTime = _now;
+        _timeBenchmarkTime = now();
         _timeBenchmarkSum += _timeBenchmarkCount;
         _timeBenchmarkCount = 0;
         _timeBenchmarkRepeat++;
@@ -1385,13 +1448,13 @@ bool Opta::timeLoop(bool startBenchmark) {
 }
 
 void Opta::timeUpdate() {
-  if (_networkConnected && (_networkSelected != NetworkType::AccessPoint)) {
+  if (networkIsConnected() && !networkIsAccessPoint()) {
     serialLine(label_time_update);
 
     ledSetFreeze(true);
-    if (_networkSelected == NetworkType::Standard) {
+    if (networkIsStandard()) {
       WiFiUDP wifiUdpClient;
-      NTPClient timeClient(wifiUdpClient, TimeServer, _configTimeOffset * 3600, 0);
+      NTPClient timeClient(wifiUdpClient, TimeServer, configGetTimeOffset() * 3600, 0);
       timeClient.begin();
       if (!timeClient.update()) {
         serialWarn(label_time_update_fail);
@@ -1401,9 +1464,9 @@ void Opta::timeUpdate() {
         serialInfo(label_time_update_success + timeClient.getFormattedTime());
         _timeUpdated = true;
       }
-    } else if (_networkSelected == NetworkType::Rj45) {
+    } else if (networkIsEthernet()) {
       EthernetUDP ethernetUdpClient;
-      NTPClient timeClient(ethernetUdpClient, TimeServer, _configTimeOffset * 3600, 0);
+      NTPClient timeClient(ethernetUdpClient, TimeServer, configGetTimeOffset() * 3600, 0);
       timeClient.begin();
       if (!timeClient.update()) {
         serialWarn(label_time_update_fail);
@@ -1433,10 +1496,10 @@ String Opta::timeGet() {
 bool Opta::mqttSetup() {
   serialLine(label_mqtt_setup);
 
-  serialInfo(label_mqtt_server + _configMqttIp + ":" + String(_configMqttPort));
+  serialInfo(label_mqtt_server + configGetMqttIp() + ":" + String(configGetMqttPort()));
 
   ledSetFreeze(true);
-  if (_networkSelected == NetworkType::Rj45) {
+  if (networkIsEthernet()) {
     MqttClient tempMqttClient(mqttEthernetClient);
     mqttClient = tempMqttClient;
   } else {
@@ -1452,7 +1515,7 @@ bool Opta::mqttSetup() {
 
 bool Opta::mqttLoop() {
   mqttConnect();
-  if (_mqttConnected) {
+  if (mqttIsConnected()) {
     int rspSize = mqttClient.parseMessage();
     if (rspSize) {
       String rspTopic = mqttClient.messageTopic();
@@ -1469,32 +1532,38 @@ bool Opta::mqttLoop() {
   return true;
 }
 
+bool Opta::mqttSetConnected(bool connected) {
+  _mqttConnected = connected;
+
+  return true;
+}
+
 bool Opta::mqttIsConnected() {
   return _mqttConnected;
 }
 
 void Opta::mqttConnect() {
-  if (!_networkConnected || (_networkSelected == NetworkType::AccessPoint)) {
+  if (!networkIsConnected() || networkIsAccessPoint()) {
     return;
   }
   if (mqttClient.connected()) {
-    _mqttConnected = true;
+    mqttSetConnected(true);
     _mqttLastRetry = 0;
     return;
   }
 
-  if (_mqttLastRetry > 0 && ((_now - _mqttLastRetry) < (NetworkRetryDelay * 1000))) {  // retry every x seconds
+  if (_mqttLastRetry > 0 && ((now() - _mqttLastRetry) < (NetworkRetryDelay * 1000))) {  // retry every x seconds
     return;
   }
 
-  _mqttConnected = false;
+  mqttSetConnected(false);
   _mqttLastRetry = millis();
   serialLine(label_mqtt_broker);
 
   ledSetFreeze(true);
-  mqttClient.setId(_configDeviceId);
-  mqttClient.setUsernamePassword(_configMqttUser, _configMqttPassword);
-  if (!mqttClient.connect(_configMqttIp.c_str(), _configMqttPort)) {
+  mqttClient.setId(configGetDeviceId());
+  mqttClient.setUsernamePassword(configGetMqttUser(), configGetMqttPassword());
+  if (!mqttClient.connect(configGetMqttIp().c_str(), configGetMqttPort())) {
     serialWarn(label_mqtt_broker_fail);
     ledSetFreeze(false);
     return;
@@ -1502,14 +1571,14 @@ void Opta::mqttConnect() {
   ledSetFreeze(false);
 
   serialInfo(label_mqtt_broker_success);
-  _mqttConnected = true;
+  mqttSetConnected(true);
 
-  String topic = _configMqttBase + _configDeviceId + "/device/get";  // command for device information
+  String topic = configGetMqttBase() + configGetDeviceId() + "/device/get";  // command for device information
   mqttClient.subscribe(topic);
   serialInfo(label_mqtt_subscribe + topic);
 
   for (size_t i = 0; i < boardGetOutputsNum(); i++) {
-    String topic = _configMqttBase + _configDeviceId + "/O" + String(i + 1);  // command for outputs
+    String topic = configGetMqttBase() + configGetDeviceId() + "/O" + String(i + 1);  // command for outputs
     mqttClient.subscribe(topic);
     serialInfo(label_mqtt_subscribe + topic);
   }
@@ -1518,7 +1587,7 @@ void Opta::mqttConnect() {
 }
 
 bool Opta::mqttSubscribe(String topic) {
-  if(_mqttConnected) {
+  if(mqttIsConnected()) {
     mqttClient.subscribe(topic);
 
     return true;
@@ -1528,7 +1597,7 @@ bool Opta::mqttSubscribe(String topic) {
 }
 
 bool Opta::mqttPublish(String topic, String message) {
-  if(_mqttConnected) {
+  if(mqttIsConnected()) {
     mqttClient.beginMessage(topic);
     mqttClient.print(message);
     mqttClient.endMessage();
@@ -1542,29 +1611,28 @@ bool Opta::mqttPublish(String topic, String message) {
 void Opta::mqttReceive(String &topic, String &payload) {
   serialLine(label_mqtt_receive + topic + " = " + payload);
 
-  String match = _configMqttBase + _configDeviceId + "/device/get";
+  String match = configGetMqttBase() + configGetDeviceId() + "/device/get";
   if (topic == match) {
     mqttPublishDevice();
   }
 
   for (size_t i = 0; i < boardGetInputsNum(); i++) {
-    String match = _configMqttBase + _configDeviceId + "/O" + String(i + 1);
+    String match = configGetMqttBase() + configGetDeviceId() + "/O" + String(i + 1);
     if (topic == match) {
       serialInfo("Setting output " + String(i + 1) + " to " + payload);
 
-      digitalWrite(BoardOutputs[i], payload.toInt());
-      digitalWrite(BoardOutputsLeds[i], payload.toInt());
+      ioSetDigitalOuput(i, (bool)payload.toInt());
     }
   }
 }
 
 void Opta::mqttPublishDevice() {
-  if (_networkConnected && _mqttConnected) {
+  if (networkIsConnected() && mqttIsConnected()) {
     serialLine(label_mqtt_publish_device);
 
-    String rootTopic = _configMqttBase + _configDeviceId;
+    String rootTopic = configGetMqttBase() + configGetDeviceId();
 
-    mqttPublish(String(rootTopic + "/device/type").c_str(), String(_boardName).c_str());
+    mqttPublish(String(rootTopic + "/device/type").c_str(), boardGetName().c_str());
     mqttPublish(String(rootTopic + "/device/ip").c_str(), networkLocalIp().toString());
     mqttPublish(String(rootTopic + "/device/revision").c_str(), String(Revision).c_str());
 
@@ -1578,21 +1646,18 @@ void Opta::mqttPublishDevice() {
 }
 
 void Opta::mqttPublishInputs() {
-  if (_networkConnected && _mqttConnected) {
+  if (networkIsConnected() && mqttIsConnected()) {
     serialLine(label_mqtt_publish_inputs);
 
-    String rootTopic = _configMqttBase + _configDeviceId + "/";
+    String rootTopic = configGetMqttBase() + configGetDeviceId() + "/";
     for (size_t i = 0; i < boardGetInputsNum(); i++) {
       String inTopic = "I" + String(i + 1) + "/";
-      if (_configInputs[i] == IoType::Analog) {
-        float value = analogRead(BoardInputs[i]) * (3.249 / ((1 << IoResolution) - 1)) / 0.3034;
-        char buffer[10];
-        snprintf(buffer, sizeof(buffer), "%0.2f", value);
-        mqttPublish(String(rootTopic + inTopic + "val").c_str(), buffer);
-        mqttPublish(String(rootTopic + inTopic + "type").c_str(), String(_configInputs[i]).c_str());
+      if (configGetInputType(i) == IoType::IoAnalog) {
+        mqttPublish(String(rootTopic + inTopic + "val").c_str(), ioGetAnalogInputString(i).c_str());
+        mqttPublish(String(rootTopic + inTopic + "type").c_str(), String(configGetInputType(i)).c_str());
       } else {
-        mqttPublish(String(rootTopic + inTopic + "val").c_str(), String(digitalRead(BoardInputs[i])).c_str());
-        mqttPublish(String(rootTopic + inTopic + "type").c_str(), String(_configInputs[i]).c_str());
+        mqttPublish(String(rootTopic + inTopic + "val").c_str(), String(ioGetDigitalInput(i)).c_str());
+        mqttPublish(String(rootTopic + inTopic + "type").c_str(), String(configGetInputType(i)).c_str());
       }
     }
   }
@@ -1608,7 +1673,7 @@ bool Opta::webSetup() {
   ledSetFreeze(true);
   webEthernetServer = EthernetServer(80);
   webWifiServer = WiFiServer(80);
-  if (_networkSelected == NetworkType::Rj45) {
+  if (networkIsEthernet()) {
     serialInfo(label_web_ethernet);
     webEthernetServer.begin();
   } else {
@@ -1621,9 +1686,9 @@ bool Opta::webSetup() {
 }
 
 bool Opta::webLoop() {
-  if (_networkConnected && _odd) {  // _odd: leave place for other things
+  if (networkIsConnected() && odd()) {  // _odd: leave place for other things
     Client *webClient = nullptr;
-    if (_networkSelected == NetworkType::Rj45) {
+    if (networkIsEthernet()) {
       EthernetClient webEthernetClient = webEthernetServer.accept();
       webClient = &webEthernetClient;
       if (webClient) {
@@ -1713,7 +1778,7 @@ void Opta::webConnect(Client *&client) {
         webConnectBlank = true;
 
         // prepare basic auth ! I s*** at this
-        String inputString = _configDeviceUser + ":" + _configDevicePassword;
+        String inputString = configGetDeviceUser() + ":" + configGetDevicePassword();
         char inputChar[32];
         inputString.toCharArray(inputChar, sizeof(inputChar));
         unsigned char *unsInputChar = (unsigned char *)inputChar;
@@ -1814,22 +1879,22 @@ void Opta::webSendConfig(Client *&client) {
 
 void Opta::webSendData(Client *&client) {
   JsonDocument doc;
-  doc["deviceId"] = _configDeviceId;
+  doc["deviceId"] = configGetDeviceId();
   doc["version"] = version();
-  doc["mqttConnected"] = _mqttConnected;
+  doc["mqttConnected"] = mqttIsConnected();
   doc["time"] = timeGet();
-  doc["gmt"] = _configTimeOffset;
+  doc["gmt"] = configGetTimeOffset();
 
   // Digital Inputs
   JsonObject inputsObject = doc["inputs"].to<JsonObject>();
   for (size_t i = 0; i < boardGetInputsNum(); i++) {
     String name = "I" + String(i + 1);
     JsonObject obj = inputsObject[name].to<JsonObject>();
-    obj["type"] = _configInputs[i];
-    if (_configInputs[i] == IoType::Analog) {
-      obj["value"] = analogRead(BoardInputs[i]) * (3.249 / ((1 << IoResolution) - 1)) / 0.3034;
+    obj["type"] = configGetInputType(i);
+    if (configGetInputType(i) == IoType::IoAnalog) {
+      obj["value"] = ioGetAnalogInputString(i);
     } else {
-      obj["value"] = digitalRead(BoardInputs[i]);
+      obj["value"] = ioGetDigitalInput(i);
     }
   }
   JsonObject outputsObj = doc["outputs"].to<JsonObject>();
@@ -1853,9 +1918,9 @@ void Opta::webReceiveConfig(Client *&client) {
   bool isValid = true;
   String jsonString = "";
 
-  String oldDevicePassword = _configDevicePassword;
-  String oldNetPassword = _configNetworkPassword;
-  String oldMqttPassword = _configMqttPassword;
+  String oldDevicePassword = configGetDevicePassword();
+  String oldNetPassword = configGetNetworkPassword();
+  String oldMqttPassword = configGetMqttPassword();
 
   while (client->available()) {
     String line = client->readStringUntil('\n');  // Read line-by-line
@@ -1872,27 +1937,27 @@ void Opta::webReceiveConfig(Client *&client) {
     serialWarn(label_web_config_fail);
     isValid = false;
   } else {
-    if (_configDeviceId == "") {  // device ID must be set
+    if (configGetDeviceId() == "") {  // device ID must be set
       serialWarn(label_web_config_fail_id);
       isValid = false;
     }
-    if (_configDeviceUser == "") {  // device user must be set
+    if (configGetDeviceUser() == "") {  // device user must be set
       serialWarn(label_web_config_fail_user);
       isValid = false;
     }
-    if (_configDevicePassword == "") {  // get old device password if none set
+    if (configGetDevicePassword() == "") {  // get old device password if none set
       serialInfo(label_web_config_keep_device);
       configSetDevicePassword(oldDevicePassword);
     }
-    int offset = _configTimeOffset;
+    int offset = configGetTimeOffset();
     if (offset > 24 || offset < -24) {  // time offset must be in this day
-      setTimeOffset(0);
+      configSetTimeOffset(0);
     }
-    if (_configNetworkPassword == "" && _configNetworkSsid != "") {  // get old wifi password if none set
+    if (configGetNetworkPassword() == "" && configGetNetworkSsid() != "") {  // get old wifi password if none set
       serialInfo(label_web_config_keep_wifi);
       configSetNetworkPassword(oldNetPassword);
     }
-    if (_configMqttPassword == "" && _configMqttUser != "") {  // get old mqtt password if none set
+    if (configGetMqttPassword() == "" && configGetMqttUser() != "") {  // get old mqtt password if none set
       serialInfo(label_web_config_keep_mqtt);
       configSetMqttPassword(oldMqttPassword);
     }
@@ -1928,6 +1993,5 @@ void Opta::webReceivePublish(Client *&client) {
   client->println();
   client->println("{\"status\":\"success\",\"message\":\"Informations published\"}");
 }
-
 
 }  // namespace

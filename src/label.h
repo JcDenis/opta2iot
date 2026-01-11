@@ -34,6 +34,7 @@ const char label_serial_receive[] = "Receiveing serial message: ";
 
 const char label_board_setup[] = "Configuring board";
 const char label_board_name[] = "Board name: ";
+const char label_board_name_none[] = "Unknown board name ";
 const char label_board_name_lite[] = "Opta Lite AFX00003 ";
 const char label_board_name_rs485[] = "Opta RS485 AFX00001";
 const char label_board_name_wifi[] = "Opta Wifi AFX00002 ";

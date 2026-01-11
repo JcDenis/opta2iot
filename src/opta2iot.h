@@ -55,13 +55,13 @@ private:
   const unsigned int BoardUserLeds[3] = { LED_RESET, LEDR, LED_USER };          // Green, Red, Blue
   const unsigned int BoardUserButtons[1] = { BTN_USER };                        // Button
   enum BoardType {
-    Undefined = 0,
-    Rs485,
-    Wifi,
-    Lite
+    BoardNone = 0,
+    BoardRs485,
+    BoardWifi,
+    BoardLite
   };
-  byte _boardType = BoardType::Undefined;
-  const char *_boardName = "Unknown board name ";
+  byte _boardType = BoardType::BoardNone;
+  bool boardSetType(BoardType type);
 
   // Flash
 
@@ -113,12 +113,20 @@ private:
 
   // Network
 
-  byte _networkSelected = NetworkType::None;
+  enum NetworkType {
+    NetworkNone = 0,
+    NetworkEthernet,    // Ethernet
+    NetworkStandard,    // Wifi STA
+    NetworkAccessPoint  // Wifi AP
+  };
+  byte _networkType = NetworkType::NetworkNone;
   bool _networkConnected = false;
   uint32_t _networkLastRetry = 0;
   bool _networkAccessPointFirstLoop = true;
   int _networkAccessPointStatus = WL_IDLE_STATUS;
-  void networkConnectRj45();
+  bool networkSetType(NetworkType type);
+  bool networkSetConnected(bool connected);
+  void networkConnectEthernet();
   void networkConnectStandard();
 
   // Time
@@ -137,6 +145,7 @@ private:
   EthernetClient mqttEthernetClient;
   WiFiClient mqttWifiClient;
   MqttClient mqttClient = nullptr;
+  bool mqttSetConnected(bool connected);
   void mqttConnect();
   void mqttReceive(String &topic, String &payload);
 
@@ -161,8 +170,9 @@ public:
 
   // Main
 
+  static const uint32_t Revision = 2026011100;
+
   Opta();
-  static const uint32_t Revision = 2026011001;
   char *version();
   uint32_t now(uint32_t now = 0);
   bool setup();
@@ -170,6 +180,7 @@ public:
   bool stop(String reason);
   bool stop(const char *reason);
   bool running();
+  bool odd(bool change = false);
   void print(String str);
   void print(const char *str);
   void format();
@@ -201,6 +212,11 @@ public:
   // Board
 
   bool boardSetup();
+  bool boardIsNone();
+  bool boardIsLite();
+  bool boardIsRs485();
+  bool boardIsWifi();
+  String boardGetName();
   size_t boardGetInputsNum();
   size_t boardGetOutputsNum();
 
@@ -242,7 +258,7 @@ public:
   void configSetDevicePassword(const String &pass);
 
   int configGetTimeOffset() const;
-  void setTimeOffset(const int offset);
+  void configSetTimeOffset(const int offset);
 
   String configGetNetworkIp() const;
   void configSetNetworkIp(const String &ip);
@@ -280,9 +296,9 @@ public:
   // IO
 
   enum IoType {
-    Analog = 0,
-    Digital,
-    Pulse
+    IoAnalog = 0,
+    IoDigital,
+    IoPulse
   };
   static const byte IoResolution = OPTA2IOT_IO_RESOLUTION;
   static const byte IoMaxInputs = OPTA2IOT_MAX_INPUTS;
@@ -291,18 +307,13 @@ public:
 
   bool ioSetup();
   bool ioLoop();
-  bool ioGetDigitalInput(size_t index);            // get digital or pulse input value
+  bool ioGetDigitalInput(size_t index);           // get digital or pulse input value
   float ioGetAnalogInput(size_t index);           // get analog input value
+  String ioGetAnalogInputString(size_t index);    // get analog input value as readable string
   void ioSetDigitalOuput(size_t index, bool on);  // set digital output value
 
   // Network
 
-  enum NetworkType {
-    None = 0,
-    Rj45,        // ETH (why? 'cause word Ethernet already exists)
-    Standard,    // Wifi STA
-    AccessPoint  // Wifi AP
-  };
   static const size_t NetworkRetryDelay = OPTA2IOT_DELAY_RETRY;
 
   bool networkSetup();
@@ -312,7 +323,7 @@ public:
   bool networkIsConnected();
   bool networkIsAccessPoint();
   bool networkIsStandard();
-  bool networkIsRj45();
+  bool networkIsEthernet();
 
   // Time
 
