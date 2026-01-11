@@ -23,6 +23,8 @@ const char label_main_reboot[] = "Rebooting device";
 const char label_main_thread[] = "Starting threaded loop";
 const char label_setup_end[] = "Setup completed in: ";
 
+const char label_watchdog_start[] = "Starting watchdog";
+
 const char label_serial_setup[] = "\n+—————————————————————————————————————+\n| Arduino Opta Industrial IoT gateway |\n+—————————————————————————————————————+\n\n";
 const char label_serial_line[] = "* ";
 const char label_serial_info[] = " > ";

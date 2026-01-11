@@ -257,6 +257,18 @@ const char web_device_html[] = R"rawliteral(
         <input type="text" id="netIp" name="netIp" required>
         <p class="note">The device IPv4 address if DHCP mode is disabled.</p>
 
+        <label for="netGateway">Gateway:</label>
+        <input type="text" id="netGateway" name="netGateway" required>
+        <p class="note">The device IPv4 gateway if DHCP mode is disabled.</p>
+
+        <label for="netSubnet">Subnet mask:</label>
+        <input type="text" id="netSubnet" name="netSubnet" required>
+        <p class="note">The device IPv4 subnet mask if DHCP mode is disabled.</p>
+
+        <label for="netDns">DNS server:</label>
+        <input type="text" id="netDns" name="netDns" required>
+        <p class="note">The device IPv4 DNS server IP if DHCP mode is disabled.</p>
+
         <div class="dhcp-toggle input-item">
           <label for="netDhcp">DHCP:</label>
           <div class="option-buttons">
@@ -354,6 +366,9 @@ const char web_device_html[] = R"rawliteral(
         document.getElementById('timeOffset').value = data.timeOffset;
 
         document.getElementById('netIp').value = data.netIp;
+        document.getElementById('netGateway').value = data.netGateway;
+        document.getElementById('netSubnet').value = data.netSubnet;
+        document.getElementById('netDns').value = data.netDns;
         if (data.netDhcp !== undefined) {
           const dhcpButtons = document.querySelectorAll('.dhcp-toggle .option-button');
           dhcpButtons.forEach(button => {
@@ -436,6 +451,9 @@ const char web_device_html[] = R"rawliteral(
         devicePassword: formData.get('devicePassword'),
         timeOffset: parseInt(formData.get('timeOffset'), 10),
         netIp: formData.get('netIp'),
+        netGateway: formData.get('netGateway'),
+        netSubnet: formData.get('netSubnet'),
+        netDns: formData.get('netDns'),
         netDhcp: false,
         netWifi: false,
         netSsid: formData.get('netSsid'),

@@ -42,6 +42,7 @@ void loop() {
      // exemple where we freeze .ino loop for 30 seconds
     delay(30000);
     Serial.println("This loop does not freeze Opta loop");
+    Serial.println("Watchdog for Opta thread is currently set to: " + String(opta.watchdogTimeout()));
     // ...
   }
 }

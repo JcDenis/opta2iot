@@ -42,6 +42,10 @@ private:
   char _version[17]; // Human readable version
   bool _threadStarted = false;
 
+  // Watchdog
+
+  bool _watchdogStarted = false;
+
   // Serial
 
   byte _serialProgress = 0;
@@ -96,6 +100,9 @@ private:
   bool _configNetworkDhcp = OPTA2IOT_NET_DHCP;
   bool _configNetworkWifi = OPTA2IOT_NET_WIFI;
   String _configNetworkIp = OPTA2IOT_NET_IP;
+  String _configNetworkGateway = OPTA2IOT_NET_GATEWAY;
+  String _configNetworkSubnet = OPTA2IOT_NET_SUBNET;
+  String _configNetworkDns = OPTA2IOT_NET_DNS;
   String _configNetworkSsid = OPTA2IOT_NET_SSID;
   String _configNetworkPassword = OPTA2IOT_NET_PASSWORD;
 
@@ -171,10 +178,12 @@ public:
   // Main
 
   static const uint32_t Revision = 2026011100;
+  static const uint32_t ConnectTimeout = OPTA2IOT_CONNECT_TIMEOUT;
+  uint32_t connectTimeout();
 
   Opta();
   char *version();
-  uint32_t now(uint32_t now = 0);
+  uint32_t now(bool now = false);
   bool setup();
   bool loop();
   bool stop(String reason);
@@ -192,6 +201,18 @@ public:
   bool endSetup();
   bool startLoop();
   bool endLoop();
+
+  // Watchdog
+
+  static const uint32_t WatchdogTimeout = OPTA2IOT_WATCHDOG_TIMEOUT;
+
+  bool watchdogSetup();
+  bool watchdogLoop();
+  bool watchdogStarted();
+  void watchdogMin();
+  void watchdogMax();
+  void watchdogPing();
+  uint32_t watchdogTimeout();
 
   // Serial
 
@@ -262,6 +283,12 @@ public:
 
   String configGetNetworkIp() const;
   void configSetNetworkIp(const String &ip);
+  String configGetNetworkGateway() const;
+  void configSetNetworkGateway(const String &ip);
+  String configGetNetworkSubnet() const;
+  void configSetNetworkSubnet(const String &ip);
+  String configGetNetworkDns() const;
+  void configSetNetworkDns(const String &ip);
   bool configGetNetworkDhcp() const;
   void configSetNetworkDhcp(const bool val);
   bool configGetNetworkWifi() const;

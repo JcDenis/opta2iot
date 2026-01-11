@@ -30,6 +30,9 @@
 // Network
 #define OPTA2IOT_NET_DHCP false
 #define OPTA2IOT_NET_IP "192.168.1.231"
+#define OPTA2IOT_NET_GATEWAY "192.168.1.1"
+#define OPTA2IOT_NET_SUBNET "255.255.0.0"
+#define OPTA2IOT_NET_DNS "4.4.4.4"
 #define OPTA2IOT_NET_WIFI true
 #define OPTA2IOT_NET_SSID ""
 #define OPTA2IOT_NET_PASSWORD ""
@@ -57,5 +60,8 @@
 // Delay
 #define OPTA2IOT_DELAY_POOL 50   // In milliseconds, inputs pool loop delay
 #define OPTA2IOT_DELAY_RETRY 45  // In seconds, network client/server connection retry delay
+#define OPTA2IOT_WATCHDOG_TIMEOUT 5000 // In milliseconds, freeze time before device reboot
+#define OPTA2IOT_CONNECT_TIMEOUT 10 // In seconds, network/mqtt/... connection timeout
+// Note: watchdog is set to max on somes task (for example on ethernet connection)
 
 #endif  // #ifndef OPTA2IOT_DEFINE_H

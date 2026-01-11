@@ -17,6 +17,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <ArduinoMqttClient.h>
+#include <drivers/Watchdog.h>
 #include "KVStore.h"
 #include "kvstore_global_api.h"
 #include <Ethernet.h>
@@ -64,9 +65,9 @@ char *Opta::version() {
   return _version;
 }
 
-uint32_t Opta::now(uint32_t now) {
-  if (now > 0) {
-    _now = now;
+uint32_t Opta::now(bool now) {
+  if (now) {
+    _now = millis();
   }
 
   return _now;
@@ -85,6 +86,7 @@ bool Opta::setup() {
          && timeSetup()
          && mqttSetup()
          && webSetup()
+         && watchdogSetup()
          && endSetup();
 }
 
@@ -98,18 +100,17 @@ bool Opta::loop() {
          && timeLoop()
          && mqttLoop()
          && webLoop()
+         && watchdogLoop()
          && endLoop();
 }
 
 bool Opta::startSetup() {
-  now(millis());
+  now(true);
 
   return true;
 }
 
 bool Opta::endSetup() {
-  //thread(); // It is better to do it in .ino file
-
   float last = floor((millis() - now()) / 1000);
   serialLine(label_setup_end + String((int)last) + " secondes");
 
@@ -117,7 +118,7 @@ bool Opta::endSetup() {
 }
 
 bool Opta::startLoop() {
-  now(millis());
+  now(true);
 
   return running();
 }
@@ -204,6 +205,66 @@ void Opta::thread() {
       }
     });
   }
+}
+
+uint32_t Opta::connectTimeout() {
+  uint32_t timeout = 10;
+  if ((ConnectTimeout > 0) && (ConnectTimeout < 120)) {
+    timeout = ConnectTimeout;
+  }
+
+  return timeout * 1000;
+}
+
+/*
+ * Watchdog
+ */
+
+bool Opta::watchdogSetup() {
+  serialLine(label_watchdog_start);
+
+  _watchdogStarted = true;
+  watchdogMin();
+
+  return true;
+}
+
+bool Opta::watchdogLoop() {
+  watchdogPing();
+
+  return true;
+}
+
+bool Opta::watchdogStarted() {
+  return _watchdogStarted;
+}
+
+void Opta::watchdogMin() {
+  if (watchdogStarted()) {
+    uint32_t timeout = 100;
+    if ((WatchdogTimeout > 0) && (WatchdogTimeout < mbed::Watchdog::get_instance().get_max_timeout())) {
+      timeout = WatchdogTimeout;
+    }
+    mbed::Watchdog::get_instance().start(timeout);
+  }
+}
+
+void Opta::watchdogMax() {
+  if (watchdogStarted()) {
+    mbed::Watchdog::get_instance().start(mbed::Watchdog::get_instance().get_max_timeout());
+  }
+}
+
+void Opta::watchdogPing() {
+  mbed::Watchdog::get_instance().kick();
+}
+
+uint32_t Opta::watchdogTimeout() {
+  if (watchdogStarted()) {
+    return mbed::Watchdog::get_instance().get_timeout();
+  }
+
+  return 0;
 }
 
 /*
@@ -507,6 +568,7 @@ bool Opta::flashFormat(bool force) {
       serialWarn(label_flash_format_error);
       return false;
     }
+    watchdogPing();
 
     if (!flashWiFiFirmwareAndCertificates() || !flashWiFiFirmwareMapped()) {
       return false;
@@ -521,6 +583,7 @@ bool Opta::flashFormat(bool force) {
       serialWarn(label_flash_format_error);
       return false;
     }
+    watchdogPing();
   }
 
   if (force || noUser) {
@@ -531,6 +594,7 @@ bool Opta::flashFormat(bool force) {
       serialWarn(label_flash_format_error);
       return false;
     }
+    watchdogPing();
   }
 
   return true;
@@ -554,6 +618,7 @@ bool Opta::flashWiFiFirmwareAndCertificates() {
     }
     byte_count += chunk_size;
     serialProgress(byte_count, file_size, 10, false);
+    watchdogPing();
   }
   fclose(fp);
 
@@ -575,6 +640,7 @@ bool Opta::flashWiFiFirmwareAndCertificates() {
     }
     byte_count += chunk_size;
     serialProgress(byte_count, cacert_pem_len, 10, false);
+    watchdogPing();
   }
 
   return true;
@@ -599,6 +665,7 @@ bool Opta::flashWiFiFirmwareMapped() {
     }
     byte_count += chunk_size;
     serialProgress(byte_count, file_size, 10, false);
+    watchdogPing();
   }
 
   return true;
@@ -699,17 +766,23 @@ void Opta::ledSetBlue(bool on) {
 
 void Opta::ledSetFreeze(bool on) {
   if (on) {
+    watchdogMax();
+    watchdogPing();
+
     _ledGreen = ledGetGreen();
     _ledRed = ledGetRed();
-    _ledBlue = ledGetBlue();
+    //_ledBlue = ledGetBlue();
 
     ledSetGreen(true);
     ledSetRed(true);
-    ledSetBlue(false);
+    //ledSetBlue(false);
   } else {
+    watchdogMin();
+    watchdogPing();
+
     ledSetGreen(_ledGreen);
     ledSetRed(_ledRed);
-    ledSetBlue(_ledBlue);
+    //ledSetBlue(_ledBlue);
   }
 }
 
@@ -862,12 +935,36 @@ void Opta::configSetNetworkIp(const String &ip) {
   _configNetworkIp = ip;
 }
 
+String Opta::configGetNetworkGateway() const {
+  return _configNetworkGateway;
+}
+
+void Opta::configSetNetworkGateway(const String &ip) {
+  _configNetworkGateway = ip;
+}
+
+String Opta::configGetNetworkSubnet() const {
+  return _configNetworkSubnet;
+}
+
+void Opta::configSetNetworkSubnet(const String &ip) {
+  _configNetworkSubnet = ip;
+}
+
+String Opta::configGetNetworkDns() const {
+  return _configNetworkDns;
+}
+
+void Opta::configSetNetworkDns(const String &ip) {
+  _configNetworkDns = ip;
+}
+
 bool Opta::configGetNetworkDhcp() const {
   return _configNetworkDhcp;
 }
 
 void Opta::configSetNetworkDhcp(const bool on) {
-  serialLine((on ? label_config_mode_enable : label_config_mode_disable) + String("DHCP"));
+  serialInfo((on ? label_config_mode_enable : label_config_mode_disable) + String("DHCP"));
   _configNetworkDhcp = on;
 }
 
@@ -876,7 +973,7 @@ bool Opta::configGetNetworkWifi() const {
 }
 
 void Opta::configSetNetworkWifi(const bool on) {
-  serialLine((on ? label_config_mode_enable : label_config_mode_disable) + String("Wifi"));
+  serialInfo((on ? label_config_mode_enable : label_config_mode_disable) + String("Wifi"));
   _configNetworkWifi = on;
 }
 
@@ -976,6 +1073,9 @@ bool Opta::configReadFromJson(const char *buffer, size_t length) {
       || doc["devicePassword"].isNull()
       || doc["timeOffset"].isNull()
       || doc["netIp"].isNull()
+      || doc["netGateway"].isNull()
+      || doc["netSubnet"].isNull()
+      || doc["netDns"].isNull()
       || doc["netDhcp"].isNull()
       || doc["netWifi"].isNull()
       || doc["netSsid"].isNull()
@@ -997,6 +1097,9 @@ bool Opta::configReadFromJson(const char *buffer, size_t length) {
   configSetDevicePassword(doc["devicePassword"].as<String>());
   configSetTimeOffset(doc["timeOffset"].as<int>());
   configSetNetworkIp(doc["netIp"].as<String>());
+  configSetNetworkGateway(doc["netGateway"].as<String>());
+  configSetNetworkSubnet(doc["netSubnet"].as<String>());
+  configSetNetworkDns(doc["netDns"].as<String>());
   configSetNetworkDhcp(doc["netDhcp"].as<bool>());
   configSetNetworkWifi(doc["netWifi"].as<bool>());
   configSetNetworkSsid(doc["netSsid"].as<String>());
@@ -1028,6 +1131,9 @@ String Opta::configWriteToJson(const bool nopass) {
   doc["devicePassword"] = nopass ? "" : configGetDevicePassword();
   doc["timeOffset"] = configGetTimeOffset();
   doc["netIp"] = configGetNetworkIp();
+  doc["netGateway"] = configGetNetworkGateway();
+  doc["netSubnet"] = configGetNetworkSubnet();
+  doc["netDns"] = configGetNetworkDns();
   doc["netDhcp"] = configGetNetworkDhcp();
   doc["netWifi"] = configGetNetworkWifi();
   doc["netSsid"] = configGetNetworkSsid();
@@ -1059,6 +1165,9 @@ void Opta::configReadFromDefault() {
   configSetTimeOffset(OPTA2IOT_TIME_OFFSET);
 
   configSetNetworkIp(OPTA2IOT_NET_IP);
+  configSetNetworkGateway(OPTA2IOT_NET_GATEWAY);
+  configSetNetworkSubnet(OPTA2IOT_NET_SUBNET);
+  configSetNetworkDns(OPTA2IOT_NET_DNS);
   configSetNetworkDhcp(OPTA2IOT_NET_DHCP);
   configSetNetworkWifi(OPTA2IOT_NET_WIFI);
   configSetNetworkSsid(OPTA2IOT_NET_SSID);
@@ -1247,7 +1356,7 @@ bool Opta::networkSetup() {
       // Ko
       return stop(label_network_fail);
     }
-
+    
     networkConnectEthernet();
   }
 
@@ -1264,10 +1373,10 @@ bool Opta::networkLoop() {
   if (networkIsEthernet()) {
     // mauvaise condition
     if (!networkIsConnected() && (_networkLastRetry == 0 || now() - _networkLastRetry > (NetworkRetryDelay * 1000))) {
+      _networkLastRetry = now();
       if (networkIsConnected()) {
-        _networkLastRetry = now();
         Ethernet.maintain();
-      } else if (Ethernet.linkStatus() == LinkON) {
+      } else {
         networkConnectEthernet();
       }
     }
@@ -1351,10 +1460,10 @@ void Opta::networkConnectEthernet() {
   ledSetFreeze(true);
   if (configGetNetworkDhcp()) {
     serialInfo(label_network_mode + String("DHCP"));
-    ret = Ethernet.begin();  // If failed this can take 1 minute long...
+    ret = Ethernet.begin(nullptr, connectTimeout(), 4000);
   } else {
     serialInfo(label_network_mode + String("Static IP"));
-    ret = Ethernet.begin(networkParseIp(configGetNetworkIp()));  // If failed this can take 1 minute long...
+    ret = Ethernet.begin(nullptr, networkParseIp(configGetNetworkIp()), networkParseIp(configGetNetworkDns()), networkParseIp(configGetNetworkGateway()), networkParseIp(configGetNetworkSubnet()), connectTimeout(), 4000);
   }
   ledSetFreeze(false);
 
@@ -1385,10 +1494,11 @@ void Opta::networkConnectStandard() {
     serialInfo(label_network_mode + String("DHCP"));
   } else {
     serialInfo(label_network_mode + String("Static IP"));
-    WiFi.config(networkParseIp(configGetNetworkIp()));
+    WiFi.config(networkParseIp(configGetNetworkIp()), networkParseIp(configGetNetworkDns()), networkParseIp(configGetNetworkGateway()), networkParseIp(configGetNetworkSubnet()));
   }
 
   ledSetFreeze(true);
+  WiFi.setTimeout(connectTimeout());
   int ret = WiFi.begin(ssid, pass);
   ledSetFreeze(false);
 
@@ -1456,7 +1566,7 @@ void Opta::timeUpdate() {
       WiFiUDP wifiUdpClient;
       NTPClient timeClient(wifiUdpClient, TimeServer, configGetTimeOffset() * 3600, 0);
       timeClient.begin();
-      if (!timeClient.update()) {
+      if (!timeClient.update() || !timeClient.isTimeSet()) {
         serialWarn(label_time_update_fail);
       } else {
         const unsigned long epoch = timeClient.getEpochTime();
@@ -1563,6 +1673,7 @@ void Opta::mqttConnect() {
   ledSetFreeze(true);
   mqttClient.setId(configGetDeviceId());
   mqttClient.setUsernamePassword(configGetMqttUser(), configGetMqttPassword());
+  mqttClient.setConnectionTimeout(connectTimeout());
   if (!mqttClient.connect(configGetMqttIp().c_str(), configGetMqttPort())) {
     serialWarn(label_mqtt_broker_fail);
     ledSetFreeze(false);
@@ -1885,18 +1996,18 @@ void Opta::webSendData(Client *&client) {
   doc["time"] = timeGet();
   doc["gmt"] = configGetTimeOffset();
 
-  // Digital Inputs
   JsonObject inputsObject = doc["inputs"].to<JsonObject>();
   for (size_t i = 0; i < boardGetInputsNum(); i++) {
     String name = "I" + String(i + 1);
     JsonObject obj = inputsObject[name].to<JsonObject>();
     obj["type"] = configGetInputType(i);
     if (configGetInputType(i) == IoType::IoAnalog) {
-      obj["value"] = ioGetAnalogInputString(i);
+      obj["value"] = ioGetAnalogInput(i);
     } else {
       obj["value"] = ioGetDigitalInput(i);
     }
   }
+
   JsonObject outputsObj = doc["outputs"].to<JsonObject>();
   for (size_t i = 0; i < boardGetOutputsNum(); i++) {
     String name = "O" + String(i + 1);
@@ -1922,6 +2033,7 @@ void Opta::webReceiveConfig(Client *&client) {
   String oldNetPassword = configGetNetworkPassword();
   String oldMqttPassword = configGetMqttPassword();
 
+  watchdogMax();
   while (client->available()) {
     String line = client->readStringUntil('\n');  // Read line-by-line
 
@@ -1932,6 +2044,7 @@ void Opta::webReceiveConfig(Client *&client) {
 
     jsonString += line;
   }
+  watchdogMin();
 
   if (!isValid || configReadFromJson(jsonString.c_str(), jsonString.length()) < 1) {
     serialWarn(label_web_config_fail);
