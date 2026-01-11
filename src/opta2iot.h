@@ -177,7 +177,7 @@ public:
 
   // Main
 
-  static const uint32_t Revision = 2026011100;
+  static const uint32_t Revision = 2026011102;
   static const uint32_t ConnectTimeout = OPTA2IOT_CONNECT_TIMEOUT;
   uint32_t connectTimeout();
 

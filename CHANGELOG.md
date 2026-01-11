@@ -1,3 +1,11 @@
+opta2iot 2026.01.11 r02
+=======================
+* Rename enum values
+* Use methods instead of variables
+* Add watchdog
+* Fix timeout on various network connections
+* Add full network config for static IP
+
 opta2iot 2026.01.10 r01
 =======================
 * Remove __PROGMEM__ usage
