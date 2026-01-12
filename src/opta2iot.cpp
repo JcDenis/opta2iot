@@ -47,7 +47,7 @@ namespace opta2iot {
 
 Opta::Opta() {
   // create static instance
-  instance = this;  // required by MQTT.onMessage() and Thread.start()
+  instance = this;  // required by Thread.start()
 }
 
 Opta *Opta::instance = nullptr;
@@ -207,15 +207,6 @@ void Opta::thread() {
   }
 }
 
-uint32_t Opta::connectTimeout() {
-  uint32_t timeout = 10;
-  if ((ConnectTimeout > 0) && (ConnectTimeout < 120)) {
-    timeout = ConnectTimeout;
-  }
-
-  return timeout * 1000;
-}
-
 /*
  * Watchdog
  */
@@ -251,6 +242,7 @@ void Opta::watchdogMin() {
 
 void Opta::watchdogMax() {
   if (watchdogStarted()) {
+    // Opta board has a max timeout of 32270
     mbed::Watchdog::get_instance().start(mbed::Watchdog::get_instance().get_max_timeout());
   }
 }
@@ -298,6 +290,9 @@ bool Opta::serialLoop() {
     if (message.equals("config")) {
       serialInfo(configWriteToJson(false));
     }
+    if (message.equals("store")) {
+      storePrint();
+    }
     if (message.equals("time")) {
       serialLine(label_serial_cmd_time);
       serialInfo(timeGet());
@@ -340,6 +335,10 @@ bool Opta::serialLoop() {
   return true;
 }
 
+bool Opta::serialVerbose() {
+  return !!SerialVerbose;
+}
+
 void Opta::serialLine(String str) {
   print(label_serial_line + str + "\n");
 }
@@ -348,7 +347,7 @@ void Opta::serialLine(const char *str) {
 }
 
 void Opta::serialInfo(String str) {
-  if (SerialVerbose) {
+  if (serialVerbose()) {
     print(label_serial_info + str + "\n");
   }
 }
@@ -364,7 +363,7 @@ void Opta::serialWarn(const char *str) {
 }
 
 void Opta::serialProgress(uint32_t offset, uint32_t size, uint32_t threshold, bool reset) {
-  if (SerialVerbose) {
+  if (serialVerbose()) {
     if (reset == true) {
       _serialProgress = 0;
       serialInfo(String(_serialProgress) + "%");
@@ -554,10 +553,10 @@ bool Opta::flashFormat(bool force) {
     serialInfo(label_flash_erase_done);
   }
 
-  mbed::MBRBlockDevice::partition(_flashRoot, 1, 0x0B, 0, 1 * 1024 * 1024);
-  mbed::MBRBlockDevice::partition(_flashRoot, 2, 0x0B, 1 * 1024 * 1024, 6 * 1024 * 1024);
-  mbed::MBRBlockDevice::partition(_flashRoot, 3, 0x0B, 6 * 1024 * 1024, 7 * 1024 * 1024);
-  mbed::MBRBlockDevice::partition(_flashRoot, 4, 0x0B, 7 * 1024 * 1024, 14 * 1024 * 1024);
+  mbed::MBRBlockDevice::partition(_flashRoot, 1, 0x0B, 0, 1 * 1024 * 1024);                // WIFI
+  mbed::MBRBlockDevice::partition(_flashRoot, 2, 0x0B, 1 * 1024 * 1024, 6 * 1024 * 1024);  // OTA
+  mbed::MBRBlockDevice::partition(_flashRoot, 3, 0x0B, 6 * 1024 * 1024, 7 * 1024 * 1024);  // KV
+  mbed::MBRBlockDevice::partition(_flashRoot, 4, 0x0B, 7 * 1024 * 1024, 14 * 1024 * 1024); // USER
   // use space from 15.5MB to 16 MB for another fw, memory mapped
 
   if (force || noWifi) {
@@ -669,6 +668,56 @@ bool Opta::flashWiFiFirmwareMapped() {
   }
 
   return true;
+}
+
+/*
+ * Store
+ */
+
+void Opta::storePrint() {
+  kv_iterator_t it;
+  kv_info_t info;
+  char key[32] = {0};
+  if (kv_iterator_open(&it, nullptr) == MBED_SUCCESS) {
+      while(kv_iterator_next(it, key, 32) == MBED_SUCCESS) {
+      if (kv_get_info(key, &info) == MBED_SUCCESS) {
+        serialInfo(String(key) + " : " + String(info.size));
+      }
+    }
+    kv_iterator_close(it);
+  }
+}
+
+const char *Opta::storeRead(const char *key) {
+  kv_info_t info;
+  if (kv_get_info(key, &info) == MBED_SUCCESS) {
+    char* buffer = (char*)malloc(info.size + 1);
+    size_t actual; 
+    if (kv_get(key, buffer, info.size, &actual) == MBED_SUCCESS) {
+      buffer[actual] = '\0';
+      
+      return buffer;
+    } 
+  }
+
+  serialWarn(label_store_read_fail);
+  return "";
+}
+
+bool Opta::storeWrite(const char *key, const char *value) {
+  if (!String(key).equals("config")) {
+    return kv_set(key, value, strlen(value), 0) == MBED_SUCCESS;
+  }
+
+  return false;
+}
+
+bool Opta::storeDelete(const char *key) {
+  if (!String(key).equals("config")) {
+    return kv_remove(key) == MBED_SUCCESS;
+  }
+
+  return false;
 }
 
 /*
@@ -1372,7 +1421,7 @@ bool Opta::networkSetup() {
 bool Opta::networkLoop() {
   if (networkIsEthernet()) {
     // mauvaise condition
-    if (!networkIsConnected() && (_networkLastRetry == 0 || now() - _networkLastRetry > (NetworkRetryDelay * 1000))) {
+    if (!networkIsConnected() && networkRetry(_networkLastRetry)) {
       _networkLastRetry = now();
       if (networkIsConnected()) {
         Ethernet.maintain();
@@ -1393,7 +1442,7 @@ bool Opta::networkLoop() {
       networkSetConnected(true);
     }
   } else if (networkIsStandard()) {
-    if (!networkIsConnected() && (_networkLastRetry == 0 || now() - _networkLastRetry > (NetworkRetryDelay * 1000))) {
+    if (!networkIsConnected() && networkRetry(_networkLastRetry)) {
       _networkLastRetry = now();
       networkConnectStandard();
     }
@@ -1412,6 +1461,19 @@ bool Opta::networkLoop() {
   }
 
   return true;
+}
+
+bool Opta::networkRetry(uint32_t last) {
+  return (NetworkRetryDelay > 0) && ((last == 0) || ((now() - last) > (NetworkRetryDelay * 1000)));
+}
+
+uint32_t Opta::networkTimeout() {
+  uint32_t timeout = 10;
+  if ((NetworkTimeout > 0) && (NetworkTimeout < 120)) {
+    timeout = NetworkTimeout;
+  }
+
+  return timeout * 1000;
 }
 
 IPAddress Opta::networkParseIp(const String &ip) {
@@ -1460,10 +1522,10 @@ void Opta::networkConnectEthernet() {
   ledSetFreeze(true);
   if (configGetNetworkDhcp()) {
     serialInfo(label_network_mode + String("DHCP"));
-    ret = Ethernet.begin(nullptr, connectTimeout(), 4000);
+    ret = Ethernet.begin(nullptr, networkTimeout(), 4000);
   } else {
     serialInfo(label_network_mode + String("Static IP"));
-    ret = Ethernet.begin(nullptr, networkParseIp(configGetNetworkIp()), networkParseIp(configGetNetworkDns()), networkParseIp(configGetNetworkGateway()), networkParseIp(configGetNetworkSubnet()), connectTimeout(), 4000);
+    ret = Ethernet.begin(nullptr, networkParseIp(configGetNetworkIp()), networkParseIp(configGetNetworkDns()), networkParseIp(configGetNetworkGateway()), networkParseIp(configGetNetworkSubnet()), networkTimeout(), 4000);
   }
   ledSetFreeze(false);
 
@@ -1498,7 +1560,7 @@ void Opta::networkConnectStandard() {
   }
 
   ledSetFreeze(true);
-  WiFi.setTimeout(connectTimeout());
+  WiFi.setTimeout(networkTimeout());
   int ret = WiFi.begin(ssid, pass);
   ledSetFreeze(false);
 
@@ -1557,6 +1619,10 @@ bool Opta::timeLoop(bool startBenchmark) {
   return true;
 }
 
+const char *Opta::timeServer() {
+  return TimeServer;
+}
+
 void Opta::timeUpdate() {
   if (networkIsConnected() && !networkIsAccessPoint()) {
     serialLine(label_time_update);
@@ -1564,7 +1630,7 @@ void Opta::timeUpdate() {
     ledSetFreeze(true);
     if (networkIsStandard()) {
       WiFiUDP wifiUdpClient;
-      NTPClient timeClient(wifiUdpClient, TimeServer, configGetTimeOffset() * 3600, 0);
+      NTPClient timeClient(wifiUdpClient, timeServer(), configGetTimeOffset() * 3600, 0);
       timeClient.begin();
       if (!timeClient.update() || !timeClient.isTimeSet()) {
         serialWarn(label_time_update_fail);
@@ -1576,7 +1642,7 @@ void Opta::timeUpdate() {
       }
     } else if (networkIsEthernet()) {
       EthernetUDP ethernetUdpClient;
-      NTPClient timeClient(ethernetUdpClient, TimeServer, configGetTimeOffset() * 3600, 0);
+      NTPClient timeClient(ethernetUdpClient, timeServer(), configGetTimeOffset() * 3600, 0);
       timeClient.begin();
       if (!timeClient.update()) {
         serialWarn(label_time_update_fail);
@@ -1662,7 +1728,7 @@ void Opta::mqttConnect() {
     return;
   }
 
-  if (_mqttLastRetry > 0 && ((now() - _mqttLastRetry) < (NetworkRetryDelay * 1000))) {  // retry every x seconds
+  if (!networkRetry(_mqttLastRetry)) {  // retry every x seconds
     return;
   }
 
@@ -1673,7 +1739,7 @@ void Opta::mqttConnect() {
   ledSetFreeze(true);
   mqttClient.setId(configGetDeviceId());
   mqttClient.setUsernamePassword(configGetMqttUser(), configGetMqttPassword());
-  mqttClient.setConnectionTimeout(connectTimeout());
+  mqttClient.setConnectionTimeout(networkTimeout()); // This directive has no effect !
   if (!mqttClient.connect(configGetMqttIp().c_str(), configGetMqttPort())) {
     serialWarn(label_mqtt_broker_fail);
     ledSetFreeze(false);
@@ -2033,7 +2099,7 @@ void Opta::webReceiveConfig(Client *&client) {
   String oldNetPassword = configGetNetworkPassword();
   String oldMqttPassword = configGetMqttPassword();
 
-  watchdogMax();
+  ledSetFreeze(true);
   while (client->available()) {
     String line = client->readStringUntil('\n');  // Read line-by-line
 
@@ -2044,7 +2110,7 @@ void Opta::webReceiveConfig(Client *&client) {
 
     jsonString += line;
   }
-  watchdogMin();
+  watchdogPing();
 
   if (!isValid || configReadFromJson(jsonString.c_str(), jsonString.length()) < 1) {
     serialWarn(label_web_config_fail);
@@ -2075,8 +2141,11 @@ void Opta::webReceiveConfig(Client *&client) {
       configSetMqttPassword(oldMqttPassword);
     }
   }
+  watchdogPing();
 
   if (isValid) {
+    configWriteToFile();
+
     client->println("HTTP/1.1 200 OK");
     client->println("Content-Type: application/json");
     client->println("Connection: close");
@@ -2084,8 +2153,6 @@ void Opta::webReceiveConfig(Client *&client) {
     client->println("{\"status\":\"success\",\"message\":\"Configuration updated\"}");
     client->stop();
 
-    configWriteToFile();
-    delay(1000);
     reboot();
   } else {
     client->println("HTTP/1.1 403 FORBIDDEN");
@@ -2094,6 +2161,7 @@ void Opta::webReceiveConfig(Client *&client) {
     client->println();
     client->println("{\"status\":\"error\",\"message\":\"Configuration not updated\"}");
   }
+  ledSetFreeze(false);
 }
 
 void Opta::webReceivePublish(Client *&client) {

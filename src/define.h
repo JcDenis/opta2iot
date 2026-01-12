@@ -59,9 +59,9 @@
 
 // Delay
 #define OPTA2IOT_DELAY_POOL 50   // In milliseconds, inputs pool loop delay
-#define OPTA2IOT_DELAY_RETRY 45  // In seconds, network client/server connection retry delay
+#define OPTA2IOT_DELAY_RETRY 60  // In seconds, network client/server connection retry delay
 #define OPTA2IOT_WATCHDOG_TIMEOUT 5000 // In milliseconds, freeze time before device reboot
-#define OPTA2IOT_CONNECT_TIMEOUT 10 // In seconds, network/mqtt/... connection timeout
+#define OPTA2IOT_NETWORK_TIMEOUT 5 // In seconds, network/mqtt/... connection timeout
 // Note: watchdog is set to max on somes task (for example on ethernet connection)
 
 #endif  // #ifndef OPTA2IOT_DEFINE_H

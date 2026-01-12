@@ -41,6 +41,7 @@ const char label_board_name_lite[] = "Opta Lite AFX00003 ";
 const char label_board_name_rs485[] = "Opta RS485 AFX00001";
 const char label_board_name_wifi[] = "Opta Wifi AFX00002 ";
 const char label_board_error[] = "Failed to find board type";
+const char label_board_reset[] = "Last reset reason: ";
 
 const char label_flash_setup[] = "Configuring flash memory";
 const char label_flash_init_error[] = "QSPI initialization failed";
@@ -57,11 +58,13 @@ const char label_flash_certificate_error[] = "Error writing certificates";
 const char label_flash_mapped[] = "Flashing memory mapped WiFi firmware";
 const char label_flash_mapped_error[] = "Error writing memory mapped firmware";
 
+const char label_store_read_fail[] = "Failed to read stored file";
+
 const char label_led_setup[] = "Configuring User LEDs";
 const char label_led_green[] = "Set Green LED on pin: ";
 const char label_led_red[] = "Set Red LED on pin ";
 const char label_led_blue[] = "Set Blue LED on pin: ";
-const char label_led_heartbeat[] = "I'm alive, it's ";
+const char label_led_heartbeat[] = "I'm alive at ";
 
 const char label_button_setup[] = "Configuring buttons";
 const char label_button_user[] = "Set user button on pin: ";

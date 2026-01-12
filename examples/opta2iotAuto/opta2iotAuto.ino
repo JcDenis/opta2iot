@@ -39,10 +39,19 @@ void setup() {
 void loop() {
   // Check if main Opta loop is still active
   if (opta.running()) {
-     // exemple where we freeze .ino loop for 30 seconds
-    delay(30000);
-    Serial.println("This loop does not freeze Opta loop");
-    Serial.println("Watchdog for Opta thread is currently set to: " + String(opta.watchdogTimeout()));
+     // example where we freeze .ino loop for 60 seconds
+    delay(20000);
+    // Example on how to store in persistent flash memory a custom config
+    opta.storeWrite("more_config", String(opta.timeGet()).c_str());
+    delay(40000);
+    if (Serial) {
+      Serial.println("| This loop does not freeze Opta loop");
+      Serial.println("| Watchdog timeout: " + String(opta.watchdogTimeout()));
+      Serial.println("| Ethernet connexion: " + String(opta.networkIsConnected() ? "yes" : "no"));
+      Serial.println("| MQTT connexion: " + String(opta.mqttIsConnected() ? "yes" : "no"));
+      Serial.println("| Reading custom config: " + String(opta.storeRead("more_config")));
+      Serial.println();
+    }
     // ...
   }
 }

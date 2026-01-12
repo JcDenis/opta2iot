@@ -44,10 +44,12 @@ private:
 
   // Watchdog
 
+  static const uint32_t WatchdogTimeout = OPTA2IOT_WATCHDOG_TIMEOUT;
   bool _watchdogStarted = false;
 
   // Serial
 
+  static const bool SerialVerbose = OPTA2IOT_SERIAL_VERBOSE;
   byte _serialProgress = 0;
   char _serialIncoming[30];  // limit command message length
 
@@ -126,6 +128,8 @@ private:
     NetworkStandard,    // Wifi STA
     NetworkAccessPoint  // Wifi AP
   };
+  static const uint32_t NetworkTimeout = OPTA2IOT_NETWORK_TIMEOUT;
+  static const size_t NetworkRetryDelay = OPTA2IOT_DELAY_RETRY;
   byte _networkType = NetworkType::NetworkNone;
   bool _networkConnected = false;
   uint32_t _networkLastRetry = 0;
@@ -138,6 +142,7 @@ private:
 
   // Time
 
+  const char *TimeServer = OPTA2IOT_TIME_SERVER;
   uint32_t _timeLastUpdate = 0;
   bool _timeUpdated = false;
   uint32_t _timeBenchmarkTime = 0;
@@ -177,11 +182,9 @@ public:
 
   // Main
 
-  static const uint32_t Revision = 2026011102;
-  static const uint32_t ConnectTimeout = OPTA2IOT_CONNECT_TIMEOUT;
-  uint32_t connectTimeout();
-
   Opta();
+
+  static const uint32_t Revision = 2026011102;
   char *version();
   uint32_t now(bool now = false);
   bool setup();
@@ -204,8 +207,6 @@ public:
 
   // Watchdog
 
-  static const uint32_t WatchdogTimeout = OPTA2IOT_WATCHDOG_TIMEOUT;
-
   bool watchdogSetup();
   bool watchdogLoop();
   bool watchdogStarted();
@@ -216,10 +217,10 @@ public:
 
   // Serial
 
-  static const bool SerialVerbose = OPTA2IOT_SERIAL_VERBOSE;
 
   bool serialSetup();
   bool serialLoop();
+  bool serialVerbose();
   void serialLine(String str);                                                          // print to serial a message
   void serialLine(const char *str);                                                     // print to serial a message
   void serialInfo(String str);                                                          // print to serial a information
@@ -247,6 +248,13 @@ public:
   bool flashHasWifi();
   bool flashHasOta();
   bool flashHasUser();
+
+  // Store
+
+  void storePrint();
+  const char *storeRead(const char *key);
+  bool storeWrite(const char *key, const char *value);
+  bool storeDelete(const char *key);
 
   // User LEDs
 
@@ -341,10 +349,10 @@ public:
 
   // Network
 
-  static const size_t NetworkRetryDelay = OPTA2IOT_DELAY_RETRY;
-
   bool networkSetup();
   bool networkLoop();
+  bool networkRetry(uint32_t last);
+  uint32_t networkTimeout();
   IPAddress networkParseIp(const String &ip);
   IPAddress networkLocalIp();
   bool networkIsConnected();
@@ -354,10 +362,9 @@ public:
 
   // Time
 
-  const char *TimeServer = OPTA2IOT_TIME_SERVER;
-
   bool timeSetup();
   bool timeLoop(bool startBenchmark = false);
+  const char *timeServer();
   void timeUpdate();
   String timeGet();
 
