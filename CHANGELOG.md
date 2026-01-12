@@ -1,3 +1,7 @@
+opta2iot 2026.01.12 r00
+=======================
+* Add simple storage methods for custom config
+
 opta2iot 2026.01.11 r02
 =======================
 * Rename enum values

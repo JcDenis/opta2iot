@@ -184,7 +184,7 @@ public:
 
   Opta();
 
-  static const uint32_t Revision = 2026011102;
+  static const uint32_t Revision = 2026011200;
   char *version();
   uint32_t now(bool now = false);
   bool setup();
