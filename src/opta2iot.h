@@ -245,6 +245,7 @@ public:
 
   bool mqttSetup();
   bool mqttLoop();
+  bool mqttIsEnabled();
   bool mqttIsConnected();
   bool mqttSubscribe(String topic);
   bool mqttPublish(String topic, String message);

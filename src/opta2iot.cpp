@@ -1071,7 +1071,11 @@ String Opta::configGetMqttIp() const {
 
 void Opta::configSetMqttIp(const String &ip) {
   serialInfo(label_config_set_mqttip + String(ip));
-  _configMqttIp = ip;
+  if (ip.equals("")) {
+    _configMqttIp = String("0.0.0.0");
+  } else {
+    _configMqttIp = ip;
+  }
 }
 
 int Opta::configGetMqttPort() const {
@@ -1862,38 +1866,42 @@ String Opta::timeGet() {
 bool Opta::mqttSetup() {
   serialLine(label_mqtt_setup);
 
-  serialInfo(label_mqtt_server + configGetMqttIp() + ":" + String(configGetMqttPort()));
+  if (mqttIsEnabled()) {
+    serialInfo(label_mqtt_server + configGetMqttIp() + ":" + String(configGetMqttPort()));
 
-  ledSetFreeze(true);
-  if (networkIsEthernet()) {
-    MqttClient tempMqttClient(mqttEthernetClient);
-    mqttClient = tempMqttClient;
-  } else {
-    MqttClient tempMqttClient(mqttWifiClient);
-    mqttClient = tempMqttClient;
+    ledSetFreeze(true);
+    if (networkIsEthernet()) {
+      MqttClient tempMqttClient(mqttEthernetClient);
+      mqttClient = tempMqttClient;
+    } else {
+      MqttClient tempMqttClient(mqttWifiClient);
+      mqttClient = tempMqttClient;
+    }
+    ledSetFreeze(false);
+
+    mqttConnect();
+
+    watchdogPing();
   }
-  ledSetFreeze(false);
-
-  mqttConnect();
-
-  watchdogPing();
 
   return running();
 }
 
 bool Opta::mqttLoop() {
-  mqttConnect();
-  if (mqttIsConnected()) {
-    int rspSize = mqttClient.parseMessage();
-    if (rspSize) {
-      String rspTopic = mqttClient.messageTopic();
-      String rspPayload = "";
+  if (mqttIsEnabled()) {
+    mqttConnect();
+    if (mqttIsConnected()) {
+      int rspSize = mqttClient.parseMessage();
+      if (rspSize) {
+        String rspTopic = mqttClient.messageTopic();
+        String rspPayload = "";
 
-      for (int index = 0; index < rspSize; index++) {
-        rspPayload += (char)mqttClient.read();
+        for (int index = 0; index < rspSize; index++) {
+          rspPayload += (char)mqttClient.read();
+        }
+
+        mqttReceive(rspTopic, rspPayload);
       }
-
-      mqttReceive(rspTopic, rspPayload);
     }
   }
 
@@ -1904,6 +1912,10 @@ bool Opta::mqttSetConnected(bool connected) {
   _mqttConnected = connected;
 
   return true;
+}
+
+bool Opta::mqttIsEnabled() {
+  return !configGetMqttIp().equals("0.0.0.0");
 }
 
 bool Opta::mqttIsConnected() {

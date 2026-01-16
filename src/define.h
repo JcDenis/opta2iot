@@ -38,7 +38,7 @@
 #define OPTA2IOT_NET_PASSWORD ""
 
 // MQTT
-#define OPTA2IOT_MQTT_IP "192.168.1.100"
+#define OPTA2IOT_MQTT_IP "0.0.0.0" // Value 0.0.0.0 disable MQTT features
 #define OPTA2IOT_MQTT_PORT 1883
 #define OPTA2IOT_MQTT_USER "mqtt_user"
 #define OPTA2IOT_MQTT_PASSWORD "mqtt_password"
