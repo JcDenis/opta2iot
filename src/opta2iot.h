@@ -31,153 +31,6 @@ namespace opta2iot {
 
 class Opta {
 
-private:
-
-  // Main
-
-  static Opta *instance;
-  bool _stop = false;
-  bool _odd = false;
-  uint32_t _now = 0;
-  char _version[17]; // Human readable version
-  bool _threadStarted = false;
-
-  // Watchdog
-
-  static const uint32_t WatchdogTimeout = OPTA2IOT_WATCHDOG_TIMEOUT;
-  bool _watchdogStarted = false;
-
-  // Serial
-
-  static const bool SerialVerbose = OPTA2IOT_SERIAL_VERBOSE;
-  byte _serialProgress = 0;
-  char _serialIncoming[30];  // limit command message length
-
-  // Board
-
-  const unsigned int BoardInputs[8] = { A0, A1, A2, A3, A4, A5, A6, A7 };       // I1, I2, I3, I4, I5, I6, I7, I8
-  const unsigned int BoardOutputs[4] = { D0, D1, D2, D3 };                      // O1, O2, O3, O4
-  const unsigned int BoardOutputsLeds[4] = { LED_D0, LED_D1, LED_D2, LED_D3 };  // O1, O2, O3, O4
-  const unsigned int BoardUserLeds[3] = { LED_RESET, LEDR, LED_USER };          // Green, Red, Blue
-  const unsigned int BoardUserButtons[1] = { BTN_USER };                        // Button
-  enum BoardType {
-    BoardNone = 0,
-    BoardRs485,
-    BoardWifi,
-    BoardLite
-  };
-  byte _boardType = BoardType::BoardNone;
-  bool boardSetType(BoardType type);
-
-  // Flash
-
-  mbed::BlockDevice *_flashRoot;
-  bool flashFormat(bool force = false);
-  bool flashWiFiFirmwareAndCertificates();
-  bool flashWiFiFirmwareMapped();
-
-  // User LEDs
-
-  bool _ledGreen = false;
-  bool _ledRed = false;
-  bool _ledBlue = false;
-  byte _ledHeartBeatStep = 0;
-  uint32_t _ledHeartbeatStart = 0;
-  uint32_t _ledConnectionStart = 0;
-  bool _ledConnectionState = false;
-
-  // User buttons
-
-  uint32_t _buttonStart = 0;
-  uint32_t _buttonDuration = 0;
-
-  // Config
-
-  String _configDeviceId = OPTA2IOT_DEVICE_ID;
-  String _configDeviceUser = OPTA2IOT_DEVICE_USER;
-  String _configDevicePassword = OPTA2IOT_DEVICE_PASSWORD;
-
-  byte _configTimeOffset = OPTA2IOT_TIME_OFFSET;
-
-  bool _configNetworkDhcp = OPTA2IOT_NET_DHCP;
-  bool _configNetworkWifi = OPTA2IOT_NET_WIFI;
-  String _configNetworkIp = OPTA2IOT_NET_IP;
-  String _configNetworkGateway = OPTA2IOT_NET_GATEWAY;
-  String _configNetworkSubnet = OPTA2IOT_NET_SUBNET;
-  String _configNetworkDns = OPTA2IOT_NET_DNS;
-  String _configNetworkSsid = OPTA2IOT_NET_SSID;
-  String _configNetworkPassword = OPTA2IOT_NET_PASSWORD;
-
-  String _configMqttIp = OPTA2IOT_MQTT_IP;
-  uint16_t _configMqttPort = OPTA2IOT_MQTT_PORT;
-  String _configMqttUser = OPTA2IOT_MQTT_USER;
-  String _configMqttPassword = OPTA2IOT_MQTT_PASSWORD;
-  String _configMqttBase = OPTA2IOT_MQTT_BASE;
-  uint16_t _configMqttInterval = OPTA2IOT_MQTT_INTERVAL;
-  byte _configInputs[OPTA2IOT_MAX_INPUTS];
-
-  // IO
-  uint32_t _ioLastPoll = 0;
-  String _ioPreviousState[OPTA2IOT_MAX_INPUTS];
-
-  // Network
-
-  enum NetworkType {
-    NetworkNone = 0,
-    NetworkEthernet,    // Ethernet
-    NetworkStandard,    // Wifi STA
-    NetworkAccessPoint  // Wifi AP
-  };
-  static const uint32_t NetworkTimeout = OPTA2IOT_NETWORK_TIMEOUT;
-  static const size_t NetworkRetryDelay = OPTA2IOT_DELAY_RETRY;
-  byte _networkType = NetworkType::NetworkNone;
-  bool _networkConnected = false;
-  uint32_t _networkLastRetry = 0;
-  bool _networkAccessPointFirstLoop = true;
-  int _networkAccessPointStatus = WL_IDLE_STATUS;
-  bool networkSetType(NetworkType type);
-  bool networkSetConnected(bool connected);
-  void networkConnectEthernet();
-  void networkConnectStandard();
-
-  // Time
-
-  const char *TimeServer = OPTA2IOT_TIME_SERVER;
-  uint32_t _timeLastUpdate = 0;
-  bool _timeUpdated = false;
-  uint32_t _timeBenchmarkTime = 0;
-  uint32_t _timeBenchmarkCount = 0;
-  byte _timeBenchmarkRepeat = 0;
-  uint32_t _timeBenchmarkSum = 0;
-
-  // MQTT
-
-  uint32_t _mqttLastRetry = 0;
-  bool _mqttConnected = false;
-  EthernetClient mqttEthernetClient;
-  WiFiClient mqttWifiClient;
-  MqttClient mqttClient = nullptr;
-  bool mqttSetConnected(bool connected);
-  void mqttConnect();
-  void mqttReceive(String &topic, String &payload);
-
-  // Web
-
-  bool _webConnected = false;
-  EthernetServer webEthernetServer;
-  WiFiServer webWifiServer;
-  void webConnect(Client *&client);
-  void webSendAuth(Client *&client);
-  void webSendError(Client *&client);
-  void webSendFavicon(Client *&client);
-  void webSendStyle(Client *&client);
-  void webSendHome(Client *&client);
-  void webSendDevice(Client *&client);
-  void webSendConfig(Client *&client);
-  void webSendData(Client *&client);
-  void webReceiveConfig(Client *&client);
-  void webReceivePublish(Client *&client);
-
 public:
 
   // Main
@@ -189,8 +42,8 @@ public:
   uint32_t now(bool now = false);
   bool setup();
   bool loop();
-  bool stop(String reason);
   bool stop(const char *reason);
+  bool started();
   bool running();
   bool odd(bool change = false);
   void print(String str);
@@ -200,15 +53,15 @@ public:
   void reboot();
   void thread();
 
-  bool startSetup();
   bool endSetup();
   bool startLoop();
-  bool endLoop();
+
+  /* tools */
+  int getHex(int value);
 
   // Watchdog
 
   bool watchdogSetup();
-  bool watchdogLoop();
   bool watchdogStarted();
   void watchdogMin();
   void watchdogMax();
@@ -216,7 +69,6 @@ public:
   uint32_t watchdogTimeout();
 
   // Serial
-
 
   bool serialSetup();
   bool serialLoop();
@@ -232,6 +84,13 @@ public:
   String serialReceived();                                                              // get received serial message
 
   // Board
+
+  enum BoardType {
+    BoardNone = 0,
+    BoardRs485,
+    BoardWifi,
+    BoardLite
+  };
 
   bool boardSetup();
   bool boardIsNone();
@@ -284,7 +143,7 @@ public:
   String configGetDeviceUser() const;
   void configSetDeviceUser(const String &user);
   String configGetDevicePassword() const;
-  void configSetDevicePassword(const String &pass);
+  void configSetDevicePassword(const String &password);
 
   int configGetTimeOffset() const;
   void configSetTimeOffset(const int offset);
@@ -304,7 +163,7 @@ public:
   String configGetNetworkSsid() const;
   void configSetNetworkSsid(const String &id);
   String configGetNetworkPassword() const;
-  void configSetNetworkPassword(const String &pass);
+  void configSetNetworkPassword(const String &password);
 
   String configGetMqttIp() const;
   void configSetMqttIp(const String &ip);
@@ -335,23 +194,29 @@ public:
     IoDigital,
     IoPulse
   };
-  static const byte IoResolution = OPTA2IOT_IO_RESOLUTION;
-  static const byte IoMaxInputs = OPTA2IOT_MAX_INPUTS;
-  static const byte IoMaxOutputs = OPTA2IOT_MAX_OUTPUTS;
-  static const byte IoPollDelay = OPTA2IOT_DELAY_POOL;
 
   bool ioSetup();
   bool ioLoop();
+  bool ioPoll(uint32_t last);
+  byte ioResolution();
   bool ioGetDigitalInput(size_t index);           // get digital or pulse input value
   float ioGetAnalogInput(size_t index);           // get analog input value
   String ioGetAnalogInputString(size_t index);    // get analog input value as readable string
-  void ioSetDigitalOuput(size_t index, bool on);  // set digital output value
+  void ioSetDigitalOuput(size_t index, bool on);  // set digital output state
+  bool ioGetDigitalOutput(size_t index);          // get memorized digital output state
 
   // Network
 
+  enum NetworkType {
+    NetworkNone = 0,
+    NetworkEthernet,    // Ethernet
+    NetworkStandard,    // Wifi STA
+    NetworkAccessPoint  // Wifi AP
+  };
+
   bool networkSetup();
   bool networkLoop();
-  bool networkRetry(uint32_t last);
+  bool networkPoll(uint32_t last);
   uint32_t networkTimeout();
   IPAddress networkParseIp(const String &ip);
   IPAddress networkLocalIp();
@@ -359,6 +224,14 @@ public:
   bool networkIsAccessPoint();
   bool networkIsStandard();
   bool networkIsEthernet();
+
+  // RS485
+
+  bool rs485Setup();
+  bool rs485IsStarted();
+  bool rs485Incoming();
+  String rs485Received();
+  bool rs485Send(String msg);
 
   // Time
 
@@ -383,8 +256,152 @@ public:
   bool webSetup();
   bool webLoop();
 
-};  // class
+private:
 
-}  // namespace
+  // Main
+
+  static Opta *instance;
+  bool _stop = false;
+  bool _odd = false;
+  uint32_t _now = 0;
+  char _version[17]; // Human readable version
+  bool _started = false;
+  bool _threaded = false;
+
+  // Watchdog
+
+  bool _watchdogStarted = false;
+
+  // Serial
+
+  byte _serialProgress = 0;
+  char _serialIncoming[30];  // limit command message length
+
+  // Board
+
+  static const byte BoardInputsMax = 44;                                       // Maximum number of inputs for board + expansions
+  static const byte BoardOutputsMax = 44;                                      // Maximum number of outputs for board + expansions
+  const unsigned int BoardInputs[8] = { A0, A1, A2, A3, A4, A5, A6, A7 };      // I1, I2, I3, I4, I5, I6, I7, I8
+  const unsigned int BoardOutputs[4] = { D0, D1, D2, D3 };                     // O1, O2, O3, O4
+  const unsigned int BoardOutputsLeds[4] = { LED_D0, LED_D1, LED_D2, LED_D3 }; // O1, O2, O3, O4
+  const unsigned int BoardUserLeds[3] = { LED_RESET, LEDR, LED_USER };         // Green, Red, Blue
+  const unsigned int BoardUserButtons[1] = { BTN_USER };                       // Button
+  byte _boardType = BoardType::BoardNone;
+  bool boardSetType(BoardType type);
+
+  // Flash
+
+  mbed::BlockDevice *_flashRoot;
+  bool flashFormat(bool force = false);
+  bool flashWiFiFirmwareAndCertificates();
+  bool flashWiFiFirmwareMapped();
+
+  // User LEDs
+
+  bool _ledGreen = false;
+  bool _ledRed = false;
+  bool _ledBlue = false;
+  byte _ledHeartBeatStep = 0;
+  uint32_t _ledHeartbeatStart = 0;
+  uint32_t _ledConnectionStart = 0;
+  bool _ledConnectionState = false;
+
+  // User buttons
+
+  uint32_t _buttonStart = 0;
+  uint32_t _buttonDuration = 0;
+
+  // Config
+
+  String _configDeviceId;
+  String _configDeviceUser;
+  String _configDevicePassword;
+
+  byte _configTimeOffset;
+
+  bool _configNetworkDhcp;
+  bool _configNetworkWifi;
+  String _configNetworkIp;
+  String _configNetworkGateway;
+  String _configNetworkSubnet;
+  String _configNetworkDns;
+  String _configNetworkSsid;
+  String _configNetworkPassword;
+
+  String _configMqttIp;
+  uint16_t _configMqttPort;
+  String _configMqttUser;
+  String _configMqttPassword;
+  String _configMqttBase;
+  uint16_t _configMqttInterval;
+
+  byte _configInputs[44];
+
+  // IO
+
+  uint32_t _ioLastPoll = 0;
+  String _ioPreviousState[44];
+  byte _ioDigitalOutputs[44];
+
+  // RS485
+
+  bool _rs485Started = false;
+  bool _rs485Sending = false;
+  bool _rs485Incoming = false;
+  String _rs485Received = "";
+  void rs485Prepare();
+
+  // Network
+
+  byte _networkType = NetworkType::NetworkNone;
+  bool _networkConnected = false;
+  uint32_t _networkLastRetry = 0;
+  bool _networkAccessPointFirstLoop = true;
+  int _networkAccessPointStatus = WL_IDLE_STATUS;
+  bool networkSetType(NetworkType type);
+  bool networkSetConnected(bool connected);
+  void networkConnectEthernet();
+  void networkConnectStandard();
+
+  // Time
+
+  uint32_t _timeLastUpdate = 0;
+  bool _timeUpdated = false;
+  uint32_t _timeBenchmarkTime = 0;
+  uint32_t _timeBenchmarkCount = 0;
+  byte _timeBenchmarkRepeat = 0;
+  uint32_t _timeBenchmarkSum = 0;
+
+  // MQTT
+
+  uint32_t _mqttLastRetry = 0;
+  bool _mqttConnected = false;
+  EthernetClient mqttEthernetClient;
+  WiFiClient mqttWifiClient;
+  MqttClient mqttClient = nullptr;
+  bool mqttSetConnected(bool connected);
+  void mqttConnect();
+  void mqttReceive(String &topic, String &payload);
+
+  // Web
+
+  bool _webConnected = false;
+  EthernetServer webEthernetServer;
+  WiFiServer webWifiServer;
+  void webConnect(Client *&client);
+  void webSendAuth(Client *&client);
+  void webSendError(Client *&client);
+  void webSendFavicon(Client *&client);
+  void webSendStyle(Client *&client);
+  void webSendHome(Client *&client);
+  void webSendDevice(Client *&client);
+  void webSendConfig(Client *&client);
+  void webSendData(Client *&client);
+  void webReceiveConfig(Client *&client);
+  void webReceivePublish(Client *&client);
+
+};  // class Opta
+
+}  // namespace opta2iot
 
 #endif  // #ifndef OPTA2IOT_H

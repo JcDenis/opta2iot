@@ -53,15 +53,21 @@
 #define OPTA2IOT_SERIAL_VERBOSE true;
 
 // IO
-#define OPTA2IOT_IO_RESOLUTION 16
-#define OPTA2IOT_MAX_INPUTS 24   // Maximum board&expension inputs, technical requirement
-#define OPTA2IOT_MAX_OUTPUTS 24  // Maximum board&expension outputs, technical requirement
+#define OPTA2IOT_IO_RESOLUTION 16 // no_config, analog resolution
+#define OPTA2IOT_IO_POLL 50   // no_config. In milliseconds, inputs poll loop delay
 
-// Delay
-#define OPTA2IOT_DELAY_POOL 50   // In milliseconds, inputs pool loop delay
-#define OPTA2IOT_DELAY_RETRY 60  // In seconds, network client/server connection retry delay
-#define OPTA2IOT_WATCHDOG_TIMEOUT 5000 // In milliseconds, freeze time before device reboot
-#define OPTA2IOT_NETWORK_TIMEOUT 5 // In seconds, network/mqtt/... connection timeout
+// SERIAL
+#define OPTA2IOT_SERIAL_BAUDRATE 115200 // no_config, serial port speed (USB)
+
+// RS485
+#define OPTA2IOT_RS485_BAUDRATE 19200 // no_config, rs485 speed
+
+// Network
+#define OPTA2IOT_NETWORK_POLL 60  // no_config. In milliseconds, network client/server connection retry delay
+#define OPTA2IOT_NETWORK_TIMEOUT 5000 // no_config. In milliseconds, network/mqtt/... connection timeout
+
+// Other
+#define OPTA2IOT_WATCHDOG_TIMEOUT 5000 // no_config. In milliseconds, freeze time before device reboot
 // Note: watchdog is set to max on somes task (for example on ethernet connection)
 
 #endif  // #ifndef OPTA2IOT_DEFINE_H

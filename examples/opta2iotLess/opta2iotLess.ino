@@ -40,7 +40,7 @@ void setup() {
   opta.configSetMqttPassword("ThePassword");
 
   // Execute device setup without removed parts
-  if (opta.startSetup()
+  if (opta.watchdogSetup()
       && opta.boardSetup()
       && opta.ledSetup()
       && opta.buttonSetup()
@@ -60,6 +60,5 @@ void loop() {
          && opta.ioLoop()
          && opta.networkLoop()
          && opta.timeLoop()
-         && opta.mqttLoop()
-         && opta.endLoop()) {}
+         && opta.mqttLoop()) {}
 }

@@ -21,7 +21,7 @@ namespace opta2iot {
 const char label_main_reset[] = "Resetting device";
 const char label_main_reboot[] = "Rebooting device";
 const char label_main_thread[] = "Starting threaded loop";
-const char label_setup_end[] = "Setup completed in: ";
+const char label_setup_end[] = "Setup completed \\o/";
 
 const char label_watchdog_start[] = "Starting watchdog";
 
@@ -32,14 +32,14 @@ const char label_serial_warn[] = "!> ";
 const char label_serial_reboot[] = "You should reboot device";
 const char label_serial_cmd_ip[] = "Getting local IP address";
 const char label_serial_cmd_time[] = "Getting local time";
-const char label_serial_receive[] = "Receiveing serial message: ";
+const char label_serial_receive[] = "Receiving serial message: ";
 
 const char label_board_setup[] = "Configuring board";
 const char label_board_name[] = "Board name: ";
 const char label_board_name_none[] = "Unknown board name ";
-const char label_board_name_lite[] = "Opta Lite AFX00003 ";
-const char label_board_name_rs485[] = "Opta RS485 AFX00001";
-const char label_board_name_wifi[] = "Opta Wifi AFX00002 ";
+const char label_board_name_lite[] = "Arduino OPTA Lite - AFX00003 ";
+const char label_board_name_rs485[] = "Arduino OPTA RS485 - AFX00001";
+const char label_board_name_wifi[] = "Aruidno OPTA Wifi - AFX00002 ";
 const char label_board_error[] = "Failed to find board type";
 const char label_board_reset[] = "Last reset reason: ";
 
@@ -72,8 +72,6 @@ const char label_button_duration[] = "Button was activated: ";
 
 const char label_config_setup[] = "Configuring parameters";
 const char label_config_hold[] = "Hold for 5 seconds the user button to fully reset device. Waiting...";
-const char label_config_mode_enable[] = "Enabling network mode: ";
-const char label_config_mode_disable[] = "Disabling network mode: ";
 const char label_config_json_read[] = "Reading configuration from JSON";
 const char label_config_json_read_error[] = "Failed to parse JSON";
 const char label_config_json_uncomplete[] = "Missing required keys in JSON";
@@ -81,10 +79,33 @@ const char label_config_default_read[] = "Loading default configuration";
 const char label_config_file_write[] = "Writing configuration to flash memory";
 const char label_config_file_read[] = "Reading configuration from flash memory";
 const char label_config_file_error[] = "Configuration file not found";
+const char label_config_set_deviceid[] = "Set device id to: ";
+const char label_config_set_deviceuser[] = "Set device user to: ";
+const char label_config_set_devicepassword[] = "Set device password to: ";
+const char label_config_set_timeoffset[] = "Set time offset to: ";
+const char label_config_set_networkip[] = "Set network IP to: ";
+const char label_config_set_networkgateway[] = "Set network Gateway to: ";
+const char label_config_set_networksubnet[] = "Set network Subnet to: ";
+const char label_config_set_networkdns[] = "Set network DNS to: ";
+const char label_config_set_networkdhcp[] = "Set network DHCP to: ";
+const char label_config_set_networkwifi[] = "Set network Wifi to: ";
+const char label_config_set_networkssid[] = "Set network SSID to: ";
+const char label_config_set_networkpassword[] = "Set network password to: ";
+const char label_config_set_mqttip[] = "Set MQTT server IP: ";
+const char label_config_set_mqttport[] = "Set MQTT server port: ";
+const char label_config_set_mqttuser[] = "Set MQTT user: ";
+const char label_config_set_mqttpassword[] = "Set MQTT password: ";
+const char label_config_set_mqttbase[] = "Set MQTT base topic: ";
+const char label_config_set_mqttinterval[] = "Set MQTT interval: ";
+const char label_config_set_modbusid[] = "Set Modbus device ID: ";
 
 const char label_io_setup[] = "Configuring IO";
 const char label_io_resolution[] = "Set IO resolution to: ";
 //...
+
+const char label_rs485_setup[] = "Configuring RS485";
+const char label_rs485_board_error[] = "RS485 is not supported by this board";
+const char label_rs485_inuse_error[] = "Serial port already in use";
 
 const char label_network_setup[] = "Configuring network";
 const char label_network_mode[] = "Set network mode as: ";
