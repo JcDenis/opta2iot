@@ -1,3 +1,7 @@
+opta2iot 2026.01.16 r00
+=======================
+* Add RS485 support
+
 opta2iot 2026.01.12 r00
 =======================
 * Add simple storage methods for custom config

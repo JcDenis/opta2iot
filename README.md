@@ -23,6 +23,7 @@ The goal of this sketch is to implement an easy to use MQTT gateway for industri
 * Configurable Wifi STA or AP and with DHCP or static IP
 * Configurable bidirectionnal MQTT Client with password support 
 * Configurable inputs (pulse, digital, analog)
+* RS485 helpers
 * Serial commands
 * Password protected Web server for visualization and configuration
 * Persistent configuration storage in flash memory
@@ -34,7 +35,6 @@ The goal of this sketch is to implement an easy to use MQTT gateway for industri
 ## To do
 
 * Support for OTA update
-* Support for RS485
 * Support for Modbus
 * Support for device expansions boards
 
@@ -45,7 +45,7 @@ The goal of this sketch is to implement an easy to use MQTT gateway for industri
 
 **Wifi AP MODE**  
 If Wifi SSID is not configured and Wifi is set as prefered network, the Wifi goes into Access Point mode.  
-Default IP is `192.168.1.231`, default SSID is `opta99999` and password is `admin`.
+Default IP is `192.168.1.231`, default SSID is `opta99999` and password is `opta2iot`.
 
 **Wifi STA MODE**  
 If Wifi SSID and password are configured and Wifi is set as prefered network, the wifi goes into Standard mode.
@@ -155,6 +155,21 @@ After boot:
 
 Note that actions take effect on button release. WIFI and DHCP actions reboot device.
 
+### Watchdog
+
+A configurable watchog is present to reboot device on problem. 
+There are two timeout that switch automatically :
+* Configurable timeout for the loop (should be greater than 1 second)
+* Fixed maximum timeout for the setup and for long operation like network connection.
+
+Maximum timeout of Opta board is 32270 milliseconds and cannot be stop.
+
+### USB
+
+There is a bug on USB, there is no way to detect if cable is disconnected. 
+And on cable disconnetion, board reboot afeter about 10 seconds.
+
+
 ## ARDUINO IDE
 
 For Arduino Finder Opta on its M7 core.
@@ -172,6 +187,7 @@ From Arduino IDE menu: _Tools > Manage libraries_, you must install:
 * `ArduinoHttpClient` by Arduino at https://github.com/arduino-libraries/ArduinoHttpClient
 * `ArduinoMqttClient` by Arduino at https://github.com/arduino-libraries/ArduinoMqttClient
 * `ArduinoJson` by Benoit Blanchon at https://github.com/bblanchon/ArduinoJson.git
+* `ArduinoRS485` by Arduino at https://github.com/arduino-libraries/ArduinoRS485
 * `base64` by Densaugeo at https://github.com/Densaugeo/base64_arduino
 
 ### Settings
