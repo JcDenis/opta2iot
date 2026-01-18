@@ -45,12 +45,12 @@ extern const unsigned char wifi_firmware_image_data[];
 
 // Set namespace
 namespace opta2iot {
-
+/*
 Opta::Opta() {
   // create static instance
   instance = this;  // required by Thread.start()
 }
-
+//*/
 Opta *Opta::instance = nullptr;
 
 char *Opta::version() {
@@ -85,9 +85,10 @@ bool Opta::setup() {
          && buttonSetup()
          && configSetup()
          && ioSetup()
-         //&& rs485Setup()
          && networkSetup()
          && timeSetup()
+         && modbusSetup()
+         && rs485Setup()
          && mqttSetup()
          && webSetup()
          && endSetup();
@@ -101,6 +102,7 @@ bool Opta::loop() {
          && ioLoop()
          && networkLoop()
          && timeLoop()
+         && modbusLoop()
          && mqttLoop()
          && webLoop();
 }
@@ -306,6 +308,21 @@ bool Opta::serialLoop() {
       //reset();
       if (flashFormat(true)) {
         reboot();
+      }
+    }
+    if (message.equals("registers")) {
+      if (modbusIsServer()) {
+        serialLine(label_serial_cmd_registers);
+        size_t reg = 0;
+        while(1) {
+          long val = modbusGetInputRegister(reg);
+          if (val == -1) {
+            serialInfo(label_serial_cmd_registers_end);
+            break;
+          }
+          serialInfo(String(reg) + " = " + val);
+          reg++;
+        }
       }
     }
     if (message.equals("reset")) {
@@ -921,6 +938,8 @@ unsigned long Opta::buttonDuration() {
 bool Opta::configSetup() {
   serialLine(label_config_setup);
 
+  configReadFromDefault();
+
   if (configReadFromFile()) {
     serialWarn(label_config_hold);
 
@@ -930,11 +949,11 @@ bool Opta::configSetup() {
       for (size_t j = 0; j < 20; j++) {
         delay(50);
         resetLedState = !resetLedState;
-        ledSetRed(resetLedState);
+        ledSetGreen(resetLedState);
 
         resetPushStart = millis();
         while (buttonGet()) {
-          ledSetRed(true);
+          ledSetGreen(true);
           if (resetPushStart + 5000 < millis()) {
             reset();
             reboot();
@@ -949,7 +968,7 @@ bool Opta::configSetup() {
         serialInfo(String(i));
       }
     }
-    ledSetRed(false);
+    ledSetGreen(false);
   }
 
   watchdogPing();
@@ -1119,8 +1138,54 @@ int Opta::configGetMqttInterval() const {
 }
 
 void Opta::configSetMqttInterval(int interval) {
-  serialInfo(label_config_set_mqttinterval + String(interval));
-  _configMqttInterval = interval;
+  if (interval >= 0) {
+    serialInfo(label_config_set_mqttinterval + String(interval));
+    _configMqttInterval = interval;
+  }
+}
+
+byte Opta::configGetModbusType() const {
+  return _configModbusType;
+}
+
+void Opta::configSetModbusType(byte type) {
+  if (type < 5) {
+    serialInfo(label_config_set_modbustype + String(type));
+    _configModbusType = type;
+  }
+}
+
+int Opta::configGetModbusId() const {
+  return _configModbusId;
+}
+
+void Opta::configSetModbusId(int id) {
+  if (id > 0 && id < 255) {
+    serialInfo(label_config_set_modbusid + String(id));
+    _configModbusId = id;
+  }
+}
+
+String Opta::configGetModbusIp() const {
+  return _configModbusIp;
+}
+
+void Opta::configSetModbusIp(const String &ip) {
+  serialInfo(label_config_set_modbusip + String(ip));
+  if (ip.equals("")) {
+    _configModbusIp = String("0.0.0.0");
+  } else {
+    _configModbusIp = ip;
+  }
+}
+
+int Opta::configGetModbusPort() const {
+  return _configModbusPort;
+}
+
+void Opta::configSetModbusPort(const int port) {
+  serialInfo(label_config_set_modbusport + String(port));
+  _configModbusPort = port;
 }
 
 byte Opta::configGetInputType(size_t index) {
@@ -1168,6 +1233,10 @@ bool Opta::configReadFromJson(const char *buffer, size_t length) {
       || doc["mqttPassword"].isNull()
       || doc["mqttBase"].isNull()
       || doc["mqttInterval"].isNull()
+      || doc["modbusType"].isNull()
+      || doc["modbusId"].isNull()
+      || doc["modbusIp"].isNull()
+      || doc["modbusPort"].isNull()
       || doc["inputs"].isNull()) {
     serialWarn(label_config_json_uncomplete);
   }
@@ -1224,15 +1293,26 @@ bool Opta::configReadFromJson(const char *buffer, size_t length) {
     configSetMqttBase(doc["mqttBase"].as<String>());
   }
   if (!doc["mqttInterval"].isNull()) {
-    configSetMqttInterval(doc["mqttInterval"].as<int>() < 0 ? 0 : doc["mqttInterval"].as<int>());
+    configSetMqttInterval(doc["mqttInterval"].as<int>());
+  }
+  if (!doc["modbusType"].isNull()) {
+      configSetModbusType(doc["modbusType"].as<int>());
+  }
+  if (!doc["modbusId"].isNull()) {
+    configSetModbusId(doc["modbusId"].as<int>());
+  }
+  if (!doc["modbusIp"].isNull()) {
+    configSetModbusIp(doc["modbusIp"].as<String>());
+  }
+  if (!doc["modbusPort"].isNull()) {
+    configSetModbusPort(doc["modbusPort"].as<int>());
   }
 
   for (size_t i = 0; i < boardGetInputsNum(); ++i) {
     String pinName = "I" + String(i + 1);
 
     if (!doc["inputs"].isNull() && !doc["inputs"][pinName].isNull()) {
-      int pinType = doc["inputs"][pinName].as<int>();
-      configSetInputType(i, (pinType == IoType::IoAnalog || pinType == IoType::IoDigital || pinType == IoType::IoPulse) ? pinType : IoType::IoAnalog);
+      configSetInputType(i, doc["inputs"][pinName].as<int>());
     }
   }
 
@@ -1263,6 +1343,10 @@ String Opta::configWriteToJson(const bool nopass) {
   doc["mqttPassword"] = nopass ? "" : configGetMqttPassword();
   doc["mqttBase"] = configGetMqttBase();
   doc["mqttInterval"] = configGetMqttInterval();
+  doc["modbusType"] = configGetModbusType();
+  doc["modbusId"] = configGetModbusId();
+  doc["modbusIp"] = configGetModbusIp();
+  doc["modbusPort"] = configGetModbusPort();
 
   for (size_t i = 0; i < boardGetInputsNum(); ++i) {
     String pinName = "I" + String(i + 1);
@@ -1298,6 +1382,11 @@ void Opta::configReadFromDefault() {
   configSetMqttPassword(OPTA2IOT_MQTT_PASSWORD);
   configSetMqttBase(OPTA2IOT_MQTT_BASE);
   configSetMqttInterval(OPTA2IOT_MQTT_INTERVAL);
+
+  configSetModbusType(OPTA2IOT_MODBUS_TYPE);
+  configSetModbusId(OPTA2IOT_MODBUS_ID);
+  configSetModbusIp(OPTA2IOT_MODBUS_IP);
+  configSetModbusPort(OPTA2IOT_MODBUS_PORT);
 
   for (size_t i = 0; i < boardGetInputsNum(); i++) {
     configSetInputType(i, IoType::IoDigital);
@@ -1342,8 +1431,12 @@ bool Opta::ioSetup() {
     serialInfo("Set input " + String(i + 1) + " of type " + String(configGetInputType(i)) + " on pin " + String(BoardInputs[i]));
     if (configGetInputType(i) == IoType::IoDigital || configGetInputType(i) == IoType::IoPulse) {
       pinMode(BoardInputs[i], INPUT);
+      _ioPreviousState[i] = String(ioGetDigitalInput(i)).c_str();
+    } else {
+      _ioPreviousState[i] = String(ioGetAnalogInputString(i)).c_str();
     }
   }
+
   for (size_t i = 0; i < boardGetOutputsNum(); ++i) {
     serialInfo("Set output " + String(i + 1) + " on pin " + String(BoardInputs[i]) + " with LED on pin " + BoardOutputsLeds[i]);
     pinMode(BoardOutputs[i], OUTPUT);
@@ -1358,10 +1451,10 @@ bool Opta::ioSetup() {
 }
 
 bool Opta::ioLoop() {
-  if (ioPoll(_ioLastPoll)) {
+  if (ioPoll()) {
 
     // Update mqtt values
-    if (networkIsConnected() && mqttIsConnected()) {
+    if (mqttIsConnected()) {
       String inputsCurrent[BoardInputsMax];
       for (size_t i = 0; i < boardGetInputsNum(); i++) {
         if (configGetInputType(i) == IoType::IoAnalog) {
@@ -1372,7 +1465,7 @@ bool Opta::ioLoop() {
 
         if (!inputsCurrent[i].equals(_ioPreviousState[i])) {
           //ts ... && only 1 for pulse
-          if (_ioLastPoll > 0 && (configGetInputType(i) != IoType::IoPulse || inputsCurrent[i].equals(String('1')))) {
+          if ((configGetInputType(i) != IoType::IoPulse) || inputsCurrent[i].equals(String('1'))) {
             String inTopic = "I" + String(i + 1);
             String rootTopic = configGetMqttBase() + configGetDeviceId() + "/";
 
@@ -1386,14 +1479,38 @@ bool Opta::ioLoop() {
       }
     }
 
-    _ioLastPoll = now();
+    // Update modbus values
+    if (modbusIsEnabled() && modbusIsServer()) {
+      size_t reg = 30; // Modbus Holding Registers Inputs part always starts at offset 30
+
+      reg++; // Skip fisrt offset
+      reg++; // Skip number of inputs
+      for (size_t i = 0; i < boardGetInputsNum(); i++) {
+        reg++; // Skip type of input
+        if (configGetInputType(i) == IoType::IoAnalog) {
+          modbusSetInputRegister(reg++, ioGetAnalogInput(i) * 1000); // in mV
+        } else {
+          modbusSetInputRegister(reg++, ioGetDigitalInput(i));
+        }
+      }
+
+      for (size_t i = 0; i < boardGetOutputsNum(); i++) {
+        modbusSetCoil(i, ioGetDigitalOutput(i));
+      }
+    }
   }
 
   return running();
 }
 
-bool Opta::ioPoll(uint32_t last) {
-  return (OPTA2IOT_IO_POLL > 0) && ((last == 0) || ((now() - last) > OPTA2IOT_IO_POLL));
+bool Opta::ioPoll() {
+  if ((OPTA2IOT_IO_POLL > 0) && ((_ioLastPoll == 0) || ((now() - _ioLastPoll) > OPTA2IOT_IO_POLL))) {
+    _ioLastPoll = now();
+
+    return true;
+  }
+
+  return false;
 }
 
 byte Opta::ioResolution() {
@@ -1438,104 +1555,6 @@ void Opta::ioSetDigitalOuput(size_t index, bool on) {
     digitalWrite(BoardOutputs[index], on ? 1 : 0);
     digitalWrite(BoardOutputsLeds[index], on ? 1 : 0);
   }
-}
-
-/*
- * Rs485
- */
-
-bool Opta::rs485Setup() {
-  if (boardIsLite()) {
-    return stop(label_rs485_board_error);
-  }
-
-  if (rs485IsStarted()) {
-    return stop(label_rs485_inuse_error);
-  }
-
-  serialLine(label_rs485_setup);
-
-  rs485Prepare();
-  RS485.begin(OPTA2IOT_RS485_BAUDRATE);
-  RS485.receive();
-
-  _rs485Started = true;
-
-  watchdogPing();
-
-  return running();
-}
-
-bool Opta::rs485IsStarted() {
-  return _rs485Started;
-}
-
-void Opta::rs485Prepare() {
-    constexpr auto bitduration{ 1.f / OPTA2IOT_RS485_BAUDRATE };
-    constexpr auto wordlen{ 9.6f };  // required for modbus, OR 10.0f depending on the channel configuration for rs485
-    constexpr auto preDelayBR{ bitduration * wordlen * 3.5f * 1e6 };
-    constexpr auto postDelayBR{ bitduration * wordlen * 3.5f * 1e6 };
-    RS485.setDelays(preDelayBR, postDelayBR);
-}
-
-bool Opta::rs485Incoming() {
-  if (rs485IsStarted()) {
-    int aval = RS485.available();
-    if (aval > 0) {
-      delay(1); // wait to receive full message
-      //serialInfo("Receiving RS485 message of length " + String(aval));
-
-      char r_message[30];
-      int r_index = 0;
-      while (1) {
-        int r_value = RS485.read();
-        if (r_value == -1) {
-          r_message[r_index] = '\0';
-          break;
-        }
-        r_message[r_index] = (char) (byte) r_value;
-        r_index++;
-      }
-      watchdogPing();
-
-      if (r_index) {
-        _rs485Received = String(r_message);
-
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-String Opta::rs485Received() {
-  String ret = "";
-  if (_rs485Received.length()) {
-    ret = _rs485Received;
-    _rs485Received = "";
-  }
-
-  return ret;
-}
-
-bool Opta::rs485Send(String msg) {
-  if (rs485IsStarted() && !_rs485Sending) {
-    //serialInfo("Sending RS485 message");
-
-    _rs485Sending = true;
-    RS485.noReceive();
-    RS485.beginTransmission();
-    RS485.print(msg);
-    RS485.endTransmission();
-    RS485.receive();
-
-    _rs485Sending = false;
-
-    return true;
-  }
-
-  return false;
 }
 
 /**
@@ -1857,6 +1876,470 @@ String Opta::timeGet() {
   _rtc_localtime(time(NULL), &t, RTC_FULL_LEAP_YEAR_SUPPORT);
   strftime(buffer, 32, "%k:%M:%S", &t);
   return String(buffer);
+}
+
+/*
+ * Rs485
+ */
+
+bool Opta::rs485Setup() {
+  serialLine(label_rs485_setup);
+
+  if (boardIsLite() || modbusIsRtu()) {
+    serialWarn(label_rs485_none);
+
+    return running();
+  }
+
+  rs485Prepare();
+  RS485.begin(OPTA2IOT_RS485_BAUDRATE);
+  RS485.receive();
+
+  _rs485Enabled = true;
+
+  watchdogPing();
+
+  return running();
+}
+
+bool Opta::rs485IsEnabled() {
+  return _rs485Enabled;
+}
+
+void Opta::rs485Prepare() {
+    constexpr auto bitduration{ 1.f / OPTA2IOT_RS485_BAUDRATE };
+    constexpr auto wordlen{ 9.6f };  // required for modbus, OR 10.0f depending on the channel configuration for rs485
+    constexpr auto preDelayBR{ bitduration * wordlen * 3.5f * 1e6 };
+    constexpr auto postDelayBR{ bitduration * wordlen * 3.5f * 1e6 };
+    RS485.setDelays(preDelayBR, postDelayBR);
+}
+
+bool Opta::rs485Incoming() {
+  if (rs485IsEnabled()) {
+    int aval = RS485.available();
+    if (aval > 0) {
+      delay(1); // wait to receive full message
+      //serialInfo("Receiving RS485 message of length " + String(aval));
+
+      char r_message[30];
+      int r_index = 0;
+      while (1) {
+        int r_value = RS485.read();
+        if (r_value == -1) {
+          r_message[r_index] = '\0';
+          break;
+        }
+        r_message[r_index] = (char) (byte) r_value;
+        r_index++;
+      }
+      watchdogPing();
+
+      if (r_index) {
+        _rs485Received = String(r_message);
+
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+String Opta::rs485Received() {
+  String ret = "";
+  if (_rs485Received.length()) {
+    ret = _rs485Received;
+    _rs485Received = "";
+  }
+
+  return ret;
+}
+
+bool Opta::rs485Send(String msg) {
+  if (rs485IsEnabled() && !_rs485Sending) {
+    //serialInfo("Sending RS485 message");
+
+    _rs485Sending = true;
+    RS485.noReceive();
+    RS485.beginTransmission();
+    RS485.print(msg);
+    RS485.endTransmission();
+    RS485.receive();
+
+    _rs485Sending = false;
+
+    return true;
+  }
+
+  return false;
+}
+
+/*
+ * Modbus
+ */
+
+bool Opta::modbusSetup() {
+  serialLine(label_modbus_setup);
+
+  if (boardIsLite() || rs485IsEnabled()) {
+    configSetModbusType(ModbusType::ModbusNone);
+    serialWarn(label_modbus_none);
+
+    return running();
+  }
+
+  byte type = configGetModbusType();
+  switch (type) {
+
+    case ModbusType::ModbusRtuServer:
+      serialInfo(label_modbus_server);
+      serialInfo(label_modbus_rtu);
+
+      rs485Prepare();
+      if (!modbusRtuServer.begin(configGetModbusId(), OPTA2IOT_RS485_BAUDRATE, SERIAL_8E1)) {
+        return stop(label_modbus_start_error);
+      }
+
+      modbusSetRegisters();
+    break;
+
+    case ModbusType::ModbusTcpServer:
+      serialInfo(label_modbus_server);
+      serialInfo(label_modbus_tcp);
+
+      if (!modbusTcpServer.begin(configGetModbusId())) {
+        return stop(label_modbus_start_error);
+      }
+
+      modbusSetRegisters();
+
+    break;
+
+    case ModbusType::ModbusRtuClient:
+      serialInfo(label_modbus_client);
+      serialInfo(label_modbus_rtu);
+
+      rs485Prepare();
+      if (!modbusRtuClient.begin(OPTA2IOT_RS485_BAUDRATE, SERIAL_8E1)) {
+        return stop(label_modbus_start_error);
+      }
+
+    break;
+
+    default:
+      configSetModbusType(ModbusType::ModbusNone);
+      serialWarn(label_modbus_none);
+  }
+
+  watchdogPing();
+
+  return running();
+}
+
+bool Opta::modbusLoop() {
+  if (modbusIsServer()) {
+    if ((now() - _modbusLastPoll) > OPTA2IOT_MODBUS_POLL) {
+      if (modbusIsRtu()) {
+        modbusRtuServer.poll();
+
+        // check if Holding Registers change
+        if (modbusRtuServer.holdingRegisterRead(0) != modbusRtuServer.inputRegisterRead(0)) {
+          serialWarn(label_modbus_registers_change);
+
+          // ... todo
+        }
+      }
+
+      _modbusLastPoll = now();
+    }
+  }
+
+  return true;
+}
+
+bool Opta::modbusIsEnabled() {
+  return configGetModbusType() != ModbusType::ModbusNone;
+}
+
+bool Opta::modbusIsRtu() {
+  return configGetModbusType() == ModbusType::ModbusRtuClient || configGetModbusType() == ModbusType::ModbusRtuServer;
+}
+
+bool Opta::modbusIsServer() {
+  return configGetModbusType() == ModbusType::ModbusRtuServer || configGetModbusType() == ModbusType::ModbusTcpServer;
+}
+
+void Opta::modbusSetRegisters() {
+  if (modbusIsServer()) {
+    size_t i = 0;
+    size_t index = 0;
+
+    // Inputs
+    const size_t inputsNum  = boardGetInputsNum();
+    // start + num + type + value
+    const size_t inputsLen  = 1 + 1 + 2 * inputsNum;
+
+    // Outputs
+    const size_t outputsNum  = boardGetOutputsNum();
+    // start + num + type + value
+    const size_t outputsLen  = 1 + 1 + 2 * outputsNum;
+
+    // Device
+    const char *deviceId = configGetDeviceId().c_str();
+    const char *deviceUser = configGetDeviceUser().c_str();
+    const char *devicePassword = configGetDevicePassword().c_str();
+    // start + id len + id + user len + user + password len + password + time offset sign + time offset
+    const size_t deviceLen = 1 + 1 + strlen(deviceId) + 1 + strlen(deviceUser) + 1 + strlen(devicePassword) + 1 + 1;
+
+    // Network
+    IPAddress networkIp = networkParseIp(configGetNetworkIp());
+    IPAddress networkGateway = networkParseIp(configGetNetworkGateway());
+    IPAddress networkSubnet = networkParseIp(configGetNetworkSubnet());
+    IPAddress networkDns = networkParseIp(configGetNetworkDns());
+    const char *networkSsid = configGetNetworkSsid().c_str();
+    const char *networkPassword = configGetNetworkPassword().c_str();
+    // start + ip + gateway + subnet + dns + dhcp + wifi + ssid len + ssid + password len password
+    const size_t networkLen = 1 + 4 + 4 + 4 + 4 + 1 + 1 + 1 + strlen(networkSsid) + 1 + strlen(devicePassword);
+
+    // MQTT
+    IPAddress mqttIp = networkParseIp(configGetMqttIp());
+    const char *mqttUser = configGetMqttUser().c_str();
+    const char *mqttPassword = configGetMqttPassword().c_str();
+    const char *mqttBase = configGetMqttBase().c_str();
+    // start + ip + port + user len + user + password len + password + base len + base + interval
+    const size_t mqttLen = 1 + 4 + 1 + 1 + strlen(mqttUser) + 1 + strlen(mqttPassword) + 1 + strlen(mqttBase) + 1;
+
+    // Sum
+    const size_t fullLen = 29 + inputsLen + outputsLen + deviceLen + networkLen + mqttLen + 1;
+
+    int reg[2000];
+
+    reg[0] = fullLen; // full length of holding registers
+    reg[1] = 20; // Commands length, start at 10 with fix length of 20
+    reg[2] = inputsLen; // Inputs length
+    reg[3] = outputsLen; // Outputs length
+    reg[4] = deviceLen; // Device length
+    reg[5] = networkLen; // Network length
+    reg[6] = mqttLen; // Mqtt length
+
+    // Command
+    reg[10] = 0; // A part always start with 0
+    reg[11] = 0; // Perfom a device Reboot. always 0 here
+    reg[12] = 0; // Perfom a device Reset. always 0 here
+    reg[13] = 0; // Perfom a device Time Update. always 0 here
+
+    index = 30;
+
+    // Inputs
+    reg[index++] = 0; // A part always start with 0
+    reg[index++] = inputsNum; // Inputs num
+    for (i = 0; i < inputsNum; i++) {
+        reg[index++] = configGetInputType(i); // Input type
+        if (configGetInputType(i) == IoType::IoAnalog) {
+          reg[index++] = ioGetAnalogInput(i) * 1000; // Input analog value in mV
+        } else {
+          reg[index++] = ioGetDigitalInput(i) ? 1 : 0; // Input digital value
+        }
+    }
+
+    // Outputs
+    reg[index++]= 0; // A part always start with 0
+    reg[index++] = outputsNum; // Outputs num
+    for (i = 0; i < outputsNum; i++) {
+        reg[index++] = IoType::IoDigital; // Output type (for now ony digital is supported)
+        reg[index++] = ioGetDigitalOutput(i); // Output state
+
+        modbusSetCoil(i, ioGetDigitalOutput(i));
+    }
+
+    // Device
+    reg[index++] = 0; // A part always start with 0
+    reg[index++] = strlen(deviceId); // Device id length
+    for (i = 0; i < strlen(deviceId); i++) {
+      reg[index++] = deviceId[i]; // Device id
+    }
+    reg[index++] = strlen(deviceUser); // Device user length
+    for (i = 0; i < strlen(deviceUser); i++) {
+      reg[index++] = deviceUser[i]; // Device user
+    }
+    reg[index++] = strlen(devicePassword); // Device password length
+    for (i = 0; i < strlen(devicePassword); i++) {
+      reg[index++] = devicePassword[i]; // Device password
+    }
+    reg[index++] = configGetTimeOffset() >= 0 ? 1 : 0; // Device positive time offset
+    reg[index++] = abs(configGetTimeOffset()); // Device abolute time offset
+
+    // Network
+    reg[index++]= 0; // A part always start with 0
+    for (i = 0; i < 4; i++) {
+      reg[index++] = networkIp[i]; // Network IP (chunk in 4)
+    }
+    for (i = 0; i < 4; i++) {
+      reg[index++] = networkGateway[i]; // Network gateway IP (chunk in 4)
+    }
+    for (i = 0; i < 4; i++) {
+      reg[index++] = networkSubnet[i]; // Network subnet IP (chunk in 4)
+    }
+    for (i = 0; i < 4; i++) {
+      reg[index++] = networkDns[i]; // Network DNS IP (chunk in 4)
+    }
+    reg[index++] = configGetNetworkDhcp() ? 1 : 0; // Network enable DHCP
+    reg[index++] = configGetNetworkWifi() ? 1 : 0; // Network enable Wifi
+    reg[index++] = strlen(networkSsid); // Network Wifi AP SSID length
+    for (i = 0; i < strlen(networkSsid); i++) {
+      reg[index++] = networkSsid[i]; // Network Wifi AP SSID
+    }
+    reg[index++] = strlen(networkPassword); // Network Wifi AP password length
+    for (i = 0; i < strlen(networkPassword); i++) {
+      reg[index++] = networkPassword[i]; // Network Wifi AP password
+    }
+
+    // MQTT
+    reg[index++] = 0; // A part always start with 0
+    for (i = 0; i < 4; i++) {
+      reg[index++] = mqttIp[i]; // MQTT server IP (chunk in 4)
+    }
+    reg[index++] = configGetMqttPort(); // MQTT server port
+    reg[index++] = strlen(mqttUser); // MQTT user length
+    for (i = 0; i < strlen(mqttUser); i++) {
+      reg[index++] = mqttUser[i]; // MQTT user
+    }
+    reg[index++] = strlen(mqttPassword); // MQTT password length
+    for (i = 0; i < strlen(mqttPassword); i++) {
+      reg[index++] = mqttPassword[i]; // MQTT password
+    }
+    reg[index++] = strlen(mqttBase); // MQTT base topic length
+    for (i = 0; i < strlen(mqttBase); i++) {
+      reg[index++] = mqttBase[i]; // MQTT base topic
+    }
+    reg[index++] = configGetMqttInterval(); // MQTT update interval
+
+    // Last Register to total length
+    reg[index++] = fullLen; // Must be the same as index 0
+
+    if (modbusIsRtu()) {
+      modbusRtuServer.configureCoils(0x00, outputsNum);
+      modbusRtuServer.configureDiscreteInputs(0x00, inputsNum);
+      modbusRtuServer.configureInputRegisters(0x00, index);
+      modbusRtuServer.configureHoldingRegisters(0x00, index);
+    } else {
+      modbusTcpServer.configureCoils(0x00, outputsNum);
+      modbusTcpServer.configureDiscreteInputs(0x00, inputsNum);
+      modbusTcpServer.configureInputRegisters(0x00, index);
+      modbusTcpServer.configureHoldingRegisters(0x00, index);
+    }
+
+    for (i = 0; i < index; i++) {
+      modbusSetHoldingRegister(i, reg[i]);
+      modbusSetInputRegister(i, reg[i]);
+    }
+  }
+}
+
+void Opta::modbusSetHoldingRegister(size_t offset, int value) {
+  if (modbusIsServer()) {
+    if (modbusIsRtu()) {
+      modbusRtuServer.holdingRegisterWrite(offset, value);
+    } else {
+      modbusTcpServer.holdingRegisterWrite(offset, value);
+    }
+  }
+}
+
+void Opta::modbusSetInputRegister(size_t offset, int value) {
+  if (modbusIsServer()) {
+    if (modbusIsRtu()) {
+      modbusRtuServer.inputRegisterWrite(offset, value);
+    } else {
+      modbusTcpServer.inputRegisterWrite(offset, value);
+    }
+  }
+}
+
+void Opta::modbusSetCoil(size_t coil, int value) {
+  if (modbusIsServer()) {
+    if (modbusIsRtu()) {
+      modbusRtuServer.coilWrite(coil, value > 0 ? 1 : 0);
+    } else {
+      modbusTcpServer.coilWrite(coil, value > 0 ? 1 : 0);
+    }
+
+    // also update output value in Holding Registers
+    size_t reg = 30 + 1 + (2 * boardGetInputsNum()) + 2 + (2 * (coil + 1));
+    modbusSetInputRegister(reg, value);
+  }
+}
+
+bool Opta::modbusGetCoil(uint8_t server, size_t coil) {
+  if (modbusIsEnabled() && !modbusIsServer()) {
+    if (modbusIsRtu()) {
+      return modbusRtuClient.coilRead(coil) == 1;
+    } else {
+      return modbusTcpClient.coilRead(coil) == 1;
+    }
+  }
+
+  return false;
+}
+
+bool Opta::modbusGetDiscreteInputs(int *response, uint8_t server, size_t length) {
+  if (!modbusIsEnabled() || modbusIsServer()) {
+    return false;
+  }
+
+  if (modbusIsRtu()) {
+    if (!modbusRtuClient.requestFrom(server, DISCRETE_INPUTS, 0x00, length)) {
+        serialWarn(String("Modbus: ") + modbusRtuClient.lastError());
+        return false;
+    }
+
+    size_t index = 0;
+    while (modbusRtuClient.available()) {
+        response[index++] = modbusRtuClient.read();
+    }
+  }
+
+  return true;
+}
+
+bool Opta::modbusGetRegisters(int *response, uint8_t type, uint8_t server, size_t start, size_t length) {
+  if (!modbusIsEnabled() || modbusIsServer()) {
+    return false;
+  }
+
+  if (modbusIsRtu()) {
+    if (!modbusRtuClient.requestFrom(server, type, start, length)) {
+        serialWarn(String("Modbus: ") + modbusRtuClient.lastError());
+        return false;
+    }
+
+    size_t index = 0;
+    while (modbusRtuClient.available()) {
+      response[index++] = modbusRtuClient.read();
+    }
+  }
+
+  return true;
+}
+
+bool Opta::modbusGetHoldingRegisters(int *response, uint8_t server, size_t start, size_t length) {
+  return modbusGetRegisters(response, HOLDING_REGISTERS, server, start, length);
+}
+
+bool Opta::modbusGetInputRegisters(int *response, uint8_t server, size_t start, size_t length) {
+  return modbusGetRegisters(response, INPUT_REGISTERS, server, start, length);
+}
+
+long Opta::modbusGetInputRegister(size_t offset) {
+  if (modbusIsServer()) {
+    if (modbusIsRtu()) {
+        return modbusRtuServer.inputRegisterRead(offset);
+    } else {
+        return modbusTcpServer.inputRegisterRead(offset);
+    }
+  }
+
+  return -1;
 }
 
 /*

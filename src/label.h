@@ -32,6 +32,8 @@ const char label_serial_warn[] = "!> ";
 const char label_serial_reboot[] = "You should reboot device";
 const char label_serial_cmd_ip[] = "Getting local IP address";
 const char label_serial_cmd_time[] = "Getting local time";
+const char label_serial_cmd_registers[] = "Reading Modbus server Input Registers";
+const char label_serial_cmd_registers_end[] = "End of Input registers";
 const char label_serial_receive[] = "Receiving serial message: ";
 
 const char label_board_setup[] = "Configuring board";
@@ -97,15 +99,27 @@ const char label_config_set_mqttuser[] = "Set MQTT user: ";
 const char label_config_set_mqttpassword[] = "Set MQTT password: ";
 const char label_config_set_mqttbase[] = "Set MQTT base topic: ";
 const char label_config_set_mqttinterval[] = "Set MQTT interval: ";
-const char label_config_set_modbusid[] = "Set Modbus device ID: ";
+const char label_config_set_modbustype[] = "Set Modbus mode: ";
+const char label_config_set_modbusid[] = "Set Modbus RTU device ID: ";
+const char label_config_set_modbusip[] = "Set Modbus TCP server IP: ";
+const char label_config_set_modbusport[] = "Set Modbus TCP server port: ";
 
 const char label_io_setup[] = "Configuring IO";
 const char label_io_resolution[] = "Set IO resolution to: ";
 //...
 
 const char label_rs485_setup[] = "Configuring RS485";
-const char label_rs485_board_error[] = "RS485 is not supported by this board";
-const char label_rs485_inuse_error[] = "Serial port already in use";
+const char label_rs485_none[] = "RS485 is disabled";
+
+const char label_modbus_setup[] = "Configuring Modbus";
+const char label_modbus_none[] = "Modbus is disabled";
+const char label_modbus_server[] = "As server";
+const char label_modbus_client[] = "As client";
+const char label_modbus_rtu[] = "Using RTU";
+const char label_modbus_tcp[] = "Using TCP";
+const char label_modbus_start_error[] = "Failed to start Modbus";
+const char label_modbus_registers_size[] = "Size of modbus Holdings Registers: ";
+const char label_modbus_registers_change[] = "Modbus Holding Registers change";
 
 const char label_network_setup[] = "Configuring network";
 const char label_network_mode[] = "Set network mode as: ";

@@ -302,7 +302,7 @@ const char web_device_html[] = R"rawliteral(
     <div class="box">
       <h2>MQTT</h2>
 
-        <label for="mqttServer">Server:</label>
+        <label for="mqttIp">Server:</label>
         <input type="text" id="mqttIp" name="mqttIp" required>
 
         <label for="mqttPort">Port:</label>
@@ -323,6 +323,35 @@ const char web_device_html[] = R"rawliteral(
         <p class="note">Set interval to 0 to disable the update.</p>
 
     </div>
+    
+    <div class="box">
+      <h2>Modbus</h2>
+
+        <div class="modbus-toggle input-item">
+        <label for="modbusType">Type:</label>
+          <div class="option-buttons">
+              <button type="button" class="option-button" data-input="modbusType" data-value="1">RTU server</button>
+              <button type="button" class="option-button" data-input="modbusType" data-value="2">TCP server</button>
+              <button type="button" class="option-button" data-input="modbusType" data-value="3">RTU client</button>
+              <button type="button" class="option-button" data-input="modbusType" data-value="4">TCP client</button>
+              <button type="button" class="option-button selected" data-input="modbusType" data-value="0">Disable</button>
+          </div>
+        </div>
+
+        <label for="modbusId">ID:</label>
+        <input type="number" id="modbusId" name="modbusId" required>
+        <p class="note">This is the ID for this device as modbus RTU server.</p>
+
+        <label for="modbusIp">IP:</label>
+        <input type="text" id="modbusIp" name="modbusIp" required>
+        <p class="note">This is the IP of the distant modbus TCP server.</p>
+
+        <label for="modbusPort">Port:</label>
+        <input type="text" id="modbusPort" name="modbusPort" required>
+        <p class="note">This is the port of the distant modbus TCP server.</p>
+
+    </div>
+
 
     <div class="box">
       <h2>Inputs</h2>
@@ -401,6 +430,21 @@ const char web_device_html[] = R"rawliteral(
         document.getElementById('mqttPassword').value = data.mqttPassword;
         document.getElementById('mqttBase').value = data.mqttBase;
         document.getElementById('mqttInterval').value = data.mqttInterval;
+
+        if (data.modbusType !== undefined) {
+          const modbusButtons = document.querySelectorAll('.modbus-toggle .option-button');
+          modbusButtons.forEach(button => {
+            const value = button.getAttribute('data-value');
+            if (value == data.modbusType) {
+              button.classList.add('selected');
+            } else {
+              button.classList.remove('selected');
+            }
+          });
+        }
+        document.getElementById('modbusId').value = data.modbusId;
+        document.getElementById('modbusIp').value = data.modbusIp;
+        document.getElementById('modbusPort').value = data.modbusPort;
         
         inputsContainer.innerHTML = ''; // Clear existing inputs
         for (const input in data.inputs) {
@@ -464,6 +508,10 @@ const char web_device_html[] = R"rawliteral(
         mqttPassword: formData.get('mqttPassword'),
         mqttBase: formData.get('mqttBase'),
         mqttInterval: parseInt(formData.get('mqttInterval'), 10),
+        modbusType: 0,
+        modbusId: parseInt(formData.get('modbusId'), 10),
+        modbusIp: formData.get('modbusIp'),
+        modbusPort: formData.get('modbusPort'),
         inputs: {},
       };
 
@@ -482,6 +530,11 @@ const char web_device_html[] = R"rawliteral(
       const wifiButton = document.querySelector('.wifi-toggle .option-button.selected');
       if (wifiButton) {
         config.netWifi = wifiButton.getAttribute('data-value') === '1';
+      }
+
+      const modbusButton = document.querySelector('.modbus-toggle .option-button.selected');
+      if (modbusButton) {
+        config.modbusType = modbusButton.getAttribute('data-value');
       }
 
       try {
@@ -638,10 +691,6 @@ button.button {
 
 .input-item label {
   flex: 1;
-}
-
-.dhcp-toggle {
-  margin-bottom: 15px;
 }
 
 h1, h2, .footer {

@@ -20,6 +20,7 @@
 #include <WiFi.h>
 #include <Ethernet.h>
 #include <ArduinoMqttClient.h>
+#include <ArduinoModbus.h>
 #include "BlockDevice.h"
 #include "define.h"
 
@@ -34,8 +35,12 @@ class Opta {
 public:
 
   // Main
-
-  Opta();
+  Opta()
+    : modbusTcpClient(modbusEthernetClient)
+  {
+    // create static instance
+    instance = this;  // required by Thread.start()
+  }
 
   static const uint32_t Revision = 2026011600;
   char *version();
@@ -178,6 +183,15 @@ public:
   int configGetMqttInterval() const;
   void configSetMqttInterval(int interval);
 
+  byte configGetModbusType() const;
+  void configSetModbusType(byte type);
+  int configGetModbusId() const;
+  void configSetModbusId(int id);
+  String configGetModbusIp() const;
+  void configSetModbusIp(const String &ip);
+  int configGetModbusPort() const;
+  void configSetModbusPort(const int port);
+
   byte configGetInputType(size_t index);
   bool configSetInputType(size_t index, byte type);
 
@@ -197,7 +211,7 @@ public:
 
   bool ioSetup();
   bool ioLoop();
-  bool ioPoll(uint32_t last);
+  bool ioPoll();
   byte ioResolution();
   bool ioGetDigitalInput(size_t index);           // get digital or pulse input value
   float ioGetAnalogInput(size_t index);           // get analog input value
@@ -225,14 +239,6 @@ public:
   bool networkIsStandard();
   bool networkIsEthernet();
 
-  // RS485
-
-  bool rs485Setup();
-  bool rs485IsStarted();
-  bool rs485Incoming();
-  String rs485Received();
-  bool rs485Send(String msg);
-
   // Time
 
   bool timeSetup();
@@ -240,6 +246,39 @@ public:
   const char *timeServer();
   void timeUpdate();
   String timeGet();
+
+  // RS485
+
+  bool rs485Setup();
+  bool rs485IsEnabled();
+  bool rs485Incoming();
+  String rs485Received();
+  bool rs485Send(String msg);
+
+  // Modbus
+
+  enum ModbusType {
+    ModbusNone = 0,
+    ModbusRtuServer,
+    ModbusTcpServer,
+    ModbusRtuClient,
+    ModbusTcpClient
+  };
+
+  bool modbusSetup();
+  bool modbusLoop();
+  bool modbusIsEnabled();
+  bool modbusIsRtu();
+  bool modbusIsServer();
+  void modbusSetHoldingRegister(size_t offset, int value);
+  void modbusSetInputRegister(size_t offset, int value);
+  long modbusGetInputRegister(size_t offset);
+  void modbusSetCoil(size_t coil, int value);
+  bool modbusGetCoil(uint8_t server, size_t coil);
+
+  bool modbusGetDiscreteInputs(int *response, uint8_t server, size_t length = 4);
+  bool modbusGetHoldingRegisters(int *response, uint8_t server, size_t start = 0, size_t length = 100);
+  bool modbusGetInputRegisters(int *response, uint8_t server, size_t start = 0, size_t length = 100);
 
   // MQTT
 
@@ -336,6 +375,11 @@ private:
   String _configMqttBase;
   uint16_t _configMqttInterval;
 
+  byte _configModbusType;
+  uint8_t _configModbusId;
+  String _configModbusIp;
+  uint16_t _configModbusPort;
+
   byte _configInputs[44];
 
   // IO
@@ -343,14 +387,6 @@ private:
   uint32_t _ioLastPoll = 0;
   String _ioPreviousState[44];
   byte _ioDigitalOutputs[44];
-
-  // RS485
-
-  bool _rs485Started = false;
-  bool _rs485Sending = false;
-  bool _rs485Incoming = false;
-  String _rs485Received = "";
-  void rs485Prepare();
 
   // Network
 
@@ -372,6 +408,25 @@ private:
   uint32_t _timeBenchmarkCount = 0;
   byte _timeBenchmarkRepeat = 0;
   uint32_t _timeBenchmarkSum = 0;
+
+  // RS485
+
+  bool _rs485Enabled = false;
+  bool _rs485Sending = false;
+  bool _rs485Incoming = false;
+  String _rs485Received = "";
+  void rs485Prepare();
+
+  // Modbus
+
+  uint32_t _modbusLastPoll = 0;
+  ModbusTCPServer modbusTcpServer;
+  ModbusRTUServerClass modbusRtuServer;
+  EthernetClient modbusEthernetClient;
+  ModbusTCPClient modbusTcpClient;
+  ModbusRTUClientClass modbusRtuClient;
+  void modbusSetRegisters();
+  bool modbusGetRegisters(int *response, uint8_t type, uint8_t server, size_t start, size_t length);
 
   // MQTT
 

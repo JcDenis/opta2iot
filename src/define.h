@@ -62,6 +62,13 @@
 // RS485
 #define OPTA2IOT_RS485_BAUDRATE 19200 // no_config, rs485 speed
 
+// Modbus
+#define OPTA2IOT_MODBUS_TYPE 0 // This device modbus mode: 0=none, 1=RTU server, 2=TCP server, 3=RTU client, 4=TCP client
+#define OPTA2IOT_MODBUS_ID 99 // This device modbus RTU server ID
+#define OPTA2IOT_MODBUS_IP "0.0.0.0" // The modbus TCP server IP
+#define OPTA2IOT_MODBUS_PORT 502 // The modbus TCP server port
+#define OPTA2IOT_MODBUS_POLL 50 // no_config. In milliseconds, modbus server poll loop delay
+
 // Network
 #define OPTA2IOT_NETWORK_POLL 60  // no_config. In milliseconds, network client/server connection retry delay
 #define OPTA2IOT_NETWORK_TIMEOUT 5000 // no_config. In milliseconds, network/mqtt/... connection timeout

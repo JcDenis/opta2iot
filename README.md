@@ -126,7 +126,7 @@ Available web server entrypoints are:
 ### LED
 
 During boot:
-* Fast blink Red : Waiting for user to press button to fully reset device
+* Fast blink Green : Waiting for user to press button to fully reset device
 * Fast blink Green to Red : Device is going to reboot
 
 After boot:
